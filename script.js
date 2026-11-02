@@ -232,6 +232,15 @@
       el.textContent = String(n);
       el.hidden = n === 0;
     });
+    var bar = document.getElementById('order-bar');
+    if (bar) {
+      bar.hidden = n === 0;
+      document.body.classList.toggle('has-order-bar', n > 0);
+      var barCount = document.getElementById('order-bar-count');
+      var barTotal = document.getElementById('order-bar-total');
+      if (barCount) barCount.textContent = String(n);
+      if (barTotal) barTotal.textContent = fmt(cartSubtotal());
+    }
   }
 
   /* -------- agregado rápido (sin modal) para productos sin opciones --------
@@ -951,8 +960,11 @@
 
     /* Abrimos la pestaña YA, en el mismo tick del click (si no, el navegador
        la trata como pop-up no pedido por el usuario y la bloquea) y recién
-       cuando sabemos el número de pedido real la mandamos a wa.me. */
-    var waWin = window.open('', '_blank', 'noopener');
+       cuando sabemos el número de pedido real la mandamos a wa.me. Importante:
+       SIN "noopener" acá — con "noopener" el navegador no nos devuelve ninguna
+       referencia a la pestaña (queda null) y no hay forma de redirigirla
+       después, se queda en blanco para siempre. */
+    var waWin = window.open('', '_blank');
 
     saveRealOrder(total).then(function (dailySeq) {
       var seq = dailySeq != null ? dailySeq : nextOrderSeq();

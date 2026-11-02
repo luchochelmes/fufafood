@@ -290,7 +290,7 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .footer__legal button:hover{opacity:1;color:#FFD400}
 
 /* ===== Floating WhatsApp ===== */
-.wa-float{display:flex;position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:60;align-items:center;justify-content:center;gap:8px;width:56px;height:56px;padding:0;background:#25D366;color:#FFFFFF;border:0;border-radius:50%;font-weight:700;font-size:15px;box-shadow:0 4px 14px rgba(0,0,0,.35);transition:transform .15s ease}
+.wa-float{display:flex;position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:60;align-items:center;justify-content:center;gap:8px;width:56px;height:56px;padding:0;background:#25D366;color:#FFFFFF;border:0;border-radius:50%;font-weight:700;font-size:15px;box-shadow:0 4px 14px rgba(0,0,0,.35);transition:transform .15s ease,bottom .2s ease}
 .wa-float:hover{transform:translateY(-2px)}
 .wa-float__icon{flex:none}
 .wa-float__text{display:none}
@@ -299,6 +299,18 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
   .wa-float:hover{color:#FFD400}
   .wa-float__icon{width:20px;height:20px}
   .wa-float__text{display:inline}
+}
+
+/* ===== Barra flotante "Mi pedido" (mientras hay algo en el carrito) ===== */
+.order-bar{display:none;position:fixed;left:0;right:0;bottom:0;z-index:58;align-items:center;justify-content:space-between;gap:16px;width:100%;padding:16px 20px calc(16px + env(safe-area-inset-bottom));background:#0E0E0E;color:#FFF8E1;border:0;font:700 16px 'Work Sans',sans-serif;cursor:pointer;box-shadow:0 -4px 14px rgba(0,0,0,.3)}
+.order-bar:not([hidden]){display:flex}
+.order-bar__label{display:flex;align-items:center;gap:10px}
+.order-bar__count{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 6px;background:#FFD400;color:#0E0E0E;border-radius:50%;font-size:13px}
+.order-bar__total{color:#FFD400;font-size:17px}
+body.has-order-bar .wa-float{bottom:calc(80px + env(safe-area-inset-bottom))}
+@media (min-width:1024px){
+  .order-bar{display:none !important}
+  body.has-order-bar .wa-float{bottom:24px}
 }
 
 /* ===== Reveal animation helper (JS toggles opacity/transform inline) ===== */
