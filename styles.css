@@ -438,6 +438,8 @@ label.opt-row.is-checked .opt-row__price{color:#0E0E0E}
 /* ===== Toast simple ===== */
 .ff-toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:110;background:#0E0E0E;color:#FFD400;padding:12px 20px;border-radius:8px;font:700 14px 'Work Sans',sans-serif;box-shadow:0 6px 18px rgba(0,0,0,.3);max-width:calc(100vw - 32px)}
 @media (min-width:1024px){.ff-toast{bottom:32px}}
+.ff-toast--action{display:flex;align-items:center;gap:14px;white-space:nowrap}
+.ff-toast__btn{background:#FFD400;color:#0E0E0E;border:0;border-radius:6px;padding:8px 14px;font:700 13px 'Work Sans',sans-serif;cursor:pointer;flex:none}
 
 /* ===== Página Legal ===== */
 .legal-page{padding-bottom:80px}
