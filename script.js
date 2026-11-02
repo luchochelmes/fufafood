@@ -1154,7 +1154,7 @@
       var badge = meta.soloLocal ? '<span class="cat-card__badge">Solo en el local</span>' : '';
       return (
         '<li data-reveal="' + delay + '">' +
-        '<a href="#/carta" class="cat-card" data-go-cat="' + c.slug + '">' +
+        '<a href="/carta" class="cat-card" data-go-cat="' + c.slug + '">' +
         '<div class="cat-card__photo photo-wrap" style="aspect-ratio:4/3">' + productImg(c.thumb, c.name, '4/3', c.name) + badge + '</div>' +
         '<div class="cat-card__row"><h3 class="cat-card__name">' + escapeHtml(c.name) + '</h3><span class="cat-card__from">' + escapeHtml(from) + '</span></div>' +
         '<p class="cat-card__examples">' + escapeHtml(meta.examples || '') + '</p>' +
@@ -1176,7 +1176,7 @@
       var p = pick.p;
       return (
         '<article class="top-pick" data-reveal="' + String(i * 70) + '">' +
-        '<a href="#/carta" class="top-card" data-go-cat="' + escapeHtml(pick.cat) + '">' +
+        '<a href="/carta" class="top-card" data-go-cat="' + escapeHtml(pick.cat) + '">' +
         '<div class="top-card__photo photo-wrap" style="aspect-ratio:4/5">' + productImg(p.thumb, p.name, '4/5', p.name) + '</div>' +
         '<p class="top-card__cat">' + escapeHtml(pick.catName) + '</p>' +
         '<div class="top-card__row"><h3 class="top-card__name">' + escapeHtml(p.name) + '</h3><span class="top-card__price">' + priceHtml(p.price, p.priceDiscount) + '</span></div>' +
@@ -1361,7 +1361,7 @@
       '<div class="zone-result zone-result--yes">' +
       '<span class="ok"><span class="ok-dot"></span>Sí, llegamos</span>' +
       '<span>' + escapeHtml(line) + '</span>' +
-      '<a href="#/carta">Armá tu pedido</a>' +
+      '<a href="/carta">Armá tu pedido</a>' +
       '</div>';
   }
 
@@ -1446,24 +1446,52 @@
     setTimeout(reveal, 60);
   }
 
+  /* ===================== ruteo con URLs reales (SEO) =====================
+     Antes cada sección vivía detrás de un "#/..." y para Google (y para
+     compartir un link) todo el sitio era una sola página con un solo
+     título. Ahora cada sección tiene su propia URL real (/carta, /delivery,
+     /legal) manejada con la History API, con su propio <title> y
+     descripción, y Vercel sirve index.html para cualquiera de esas rutas
+     (ver vercel.json) así una recarga o un link compartido funcionan igual. */
+  var PAGE_META = {
+    home: { title: 'Fufa Food — Donde el hambre se rinde.', desc: 'Hamburguesas, lomitos, pizzas y empanadas en Alta Córdoba. Comé en el local, pedí delivery o alquilá el espacio para tu evento.' },
+    carta: { title: 'Carta — Fufa Food', desc: 'Toda la carta de Fufa Food: hamburguesas, lomitos, pizzas, empanadas, frituras, bebidas y helados. Pedí por WhatsApp con delivery o retiro en Alta Córdoba.' },
+    delivery: { title: 'Delivery — Fufa Food', desc: 'Fijate si llegamos a tu barrio y cuánto cuesta el envío. Delivery de Fufa Food en Alta Córdoba y alrededores.' },
+    legal: { title: 'Términos y cookies — Fufa Food', desc: 'Términos y condiciones y política de cookies de Fufa Food.' }
+  };
+
+  function applyPageMeta(page) {
+    var meta = PAGE_META[page] || PAGE_META.home;
+    document.title = meta.title;
+    var descEl = document.querySelector('meta[name="description"]');
+    if (descEl) descEl.setAttribute('content', meta.desc);
+    var canonical = document.querySelector('link[rel="canonical"]');
+    if (canonical) {
+      var path = page === 'home' ? '/' : '/' + page;
+      canonical.setAttribute('href', location.origin + path);
+    }
+  }
+
+  function parseLocation() {
+    var seg = location.pathname.replace(/^\/+/, '').replace(/\/+$/, '');
+    var sub = (location.hash || '').replace(/^#/, '') || null;
+    var page = seg === 'carta' ? 'carta' : seg === 'delivery' ? 'delivery' : seg === 'legal' ? 'legal' : 'home';
+    return { seg: seg, sub: sub, page: page };
+  }
+
   function route(first) {
-    /* location.hash solo reconoce el primer "#" como separador: un link como
-       "#/legal#cookies" llega acá entero como "legal#cookies", por eso
-       partimos a mano la sub-anchor en vez de confiar en otro location.hash. */
-    var h = (location.hash || '').replace(/^#\/?/, '');
-    var sub = null;
-    if (h.indexOf('#') !== -1) { var parts = h.split('#'); h = parts[0]; sub = parts[1]; }
-    var page = h === 'carta' ? 'carta' : h === 'delivery' ? 'delivery' : h === 'legal' ? 'legal' : 'home';
-    showPage(page);
+    var loc = parseLocation();
+    showPage(loc.page);
+    applyPageMeta(loc.page);
     closeMenu();
     setTimeout(function () {
-      if (page === 'legal' && sub) {
-        var elL = document.getElementById(sub);
+      if (loc.page === 'legal' && loc.sub) {
+        var elL = document.getElementById(loc.sub);
         if (elL) window.scrollTo({ top: elL.getBoundingClientRect().top + window.scrollY - navPx(), behavior: first ? 'auto' : 'smooth' });
-      } else if (h === 'local' || h === 'eventos') {
-        var el = document.getElementById(h);
+      } else if (loc.seg === 'local' || loc.seg === 'eventos') {
+        var el = document.getElementById(loc.seg);
         if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - navPx(), behavior: first ? 'auto' : 'smooth' });
-      } else if (page === 'carta' && pendingCat) {
+      } else if (loc.page === 'carta' && pendingCat) {
         var id = pendingCat; pendingCat = null;
         activeCat = id; updateChipActive();
         var el2 = document.getElementById('cat-' + id);
@@ -1472,6 +1500,40 @@
         window.scrollTo({ top: 0, behavior: 'auto' });
       }
     }, 60);
+  }
+
+  /* Navega a una ruta real sin recargar la página (History API). */
+  function navigate(path) {
+    if (location.pathname + location.hash !== path) {
+      history.pushState(null, '', path);
+    }
+    route(false);
+  }
+
+  /* Intercepta los links internos (href que empieza con "/") para que la
+     navegación sea instantánea en vez de recargar todo el sitio; un click
+     con ctrl/cmd/shift o del medio sigue abriendo en pestaña nueva como
+     cualquier link normal. */
+  document.addEventListener('click', function (e) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var a = e.target.closest('a[href^="/"]');
+    if (!a || a.target === '_blank' || a.hasAttribute('download')) return;
+    e.preventDefault();
+    navigate(a.getAttribute('href'));
+  });
+
+  window.addEventListener('popstate', function () { route(false); });
+
+  /* Compatibilidad con links viejos tipo "/#/carta" (de antes de pasar a
+     URLs reales) que alguien pueda tener guardados o compartidos. */
+  function redirectLegacyHash() {
+    var h = location.hash;
+    if (!h || h.charAt(1) !== '/') return;
+    var rest = h.slice(2); // saca "#/"
+    var sub = null;
+    if (rest.indexOf('#') !== -1) { var parts = rest.split('#'); rest = parts[0]; sub = parts[1]; }
+    var path = '/' + rest + (sub ? '#' + sub : '');
+    history.replaceState(null, '', path || '/');
   }
 
   /* ===================== aplicar el panel del local a la web (en vivo) =====================
@@ -1662,18 +1724,6 @@
     initObserver();
     initEventForm();
 
-    document.querySelectorAll('.logo').forEach(function (el) {
-      el.addEventListener('click', function (e) {
-        closeMenu();
-        /* Si ya estamos en el inicio, el hash no cambia y hashchange no dispara
-           route(); forzamos el scroll arriba manualmente. */
-        if (location.hash === '#/' || location.hash === '' || location.hash === '#') {
-          e.preventDefault();
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-      });
-    });
-
     initCartaSearch();
 
     document.getElementById('menu-open-btn').addEventListener('click', openMenu);
@@ -1681,12 +1731,12 @@
     document.getElementById('zone-form').addEventListener('submit', checkZone);
     document.getElementById('barrio-input').addEventListener('change', function () { currentZone = null; renderZoneResult(); });
 
-    window.addEventListener('hashchange', function () { route(false); });
     window.addEventListener('scroll', spy, { passive: true });
     window.addEventListener('resize', function () {
       if (isDesk()) closeMenu();
     });
 
+    redirectLegacyHash();
     route(true);
     setTimeout(reveal, 300);
 
