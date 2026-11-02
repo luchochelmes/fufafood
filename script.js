@@ -238,11 +238,29 @@
     var bar = document.getElementById('order-bar');
     if (bar) {
       bar.hidden = n === 0;
-      document.body.classList.toggle('has-order-bar', n > 0);
       var barCount = document.getElementById('order-bar-count');
       var barTotal = document.getElementById('order-bar-total');
       if (barCount) barCount.textContent = String(n);
       if (barTotal) barTotal.textContent = fmt(cartSubtotal());
+    }
+    layoutBottomBars();
+  }
+
+  /* El banner de cookies, la barra "Mi pedido" y el botón de WhatsApp son
+     todos elementos fijos pegados abajo — si se apilan sin coordinarse, el
+     banner (que aparece primero, antes de que el cliente elija nada) tapa
+     a los otros dos por completo. Acá se acomodan uno arriba del otro según
+     cuáles estén visibles en ese momento. */
+  function layoutBottomBars() {
+    var banner = document.getElementById('cookie-banner');
+    var bar = document.getElementById('order-bar');
+    var wa = document.getElementById('wa-float');
+    var bannerH = (banner && !banner.hidden) ? banner.getBoundingClientRect().height : 0;
+    if (bar) bar.style.bottom = bannerH ? (bannerH + 'px') : '';
+    if (wa) {
+      var barH = (bar && !bar.hidden) ? bar.getBoundingClientRect().height : 0;
+      var extra = bannerH + barH;
+      wa.style.bottom = extra ? ('calc(' + extra + 'px + 16px + env(safe-area-inset-bottom))') : '';
     }
   }
 
@@ -383,10 +401,12 @@
   function showCookieBanner() {
     var el = document.getElementById('cookie-banner');
     if (el) el.hidden = false;
+    layoutBottomBars();
   }
   function hideCookieBanner() {
     var el = document.getElementById('cookie-banner');
     if (el) el.hidden = true;
+    layoutBottomBars();
   }
 
   function openCookieModal() {
@@ -960,22 +980,18 @@
     var total = cartSubtotal() + deliveryCost();
     var code = randOrderCode();
     var fecha = argDateStr(new Date());
+    /* El número que ve el cliente en el mensaje es el contador local
+       (instantáneo). El panel usa su propio contador del día, calculado en
+       el servidor (ver saveRealOrder) — son dos números independientes a
+       propósito: abrir WhatsApp tiene que pasar YA, en el mismo tap, sin
+       esperar ninguna respuesta de red. En mobile (sobre todo Safari), si
+       hay cualquier espera de por medio entre el toque y la navegación, el
+       navegador la bloquea y queda una pestaña en blanco rota. */
+    var seq = nextOrderSeq();
+    var msg = buildOrderMessage(seq, code, fecha, total);
 
-    /* Abrimos la pestaña YA, en el mismo tick del click (si no, el navegador
-       la trata como pop-up no pedido por el usuario y la bloquea) y recién
-       cuando sabemos el número de pedido real la mandamos a wa.me. Importante:
-       SIN "noopener" acá — con "noopener" el navegador no nos devuelve ninguna
-       referencia a la pestaña (queda null) y no hay forma de redirigirla
-       después, se queda en blanco para siempre. */
-    var waWin = window.open('', '_blank');
-
-    saveRealOrder(total).then(function (dailySeq) {
-      var seq = dailySeq != null ? dailySeq : nextOrderSeq();
-      var msg = buildOrderMessage(seq, code, fecha, total);
-      var url = waText(msg);
-      if (waWin && !waWin.closed) waWin.location.href = url;
-      else window.open(url, '_blank', 'noopener');
-    });
+    saveRealOrder(total);
+    window.open(waText(msg), '_blank', 'noopener');
 
     CART = [];
     saveCart();
@@ -1942,6 +1958,7 @@
     window.addEventListener('scroll', spy, { passive: true });
     window.addEventListener('resize', function () {
       if (isDesk()) closeMenu();
+      layoutBottomBars();
     });
 
     redirectLegacyHash();

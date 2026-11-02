@@ -312,7 +312,7 @@
     var visibleItems = o.items.slice(0, 2);
     var items = visibleItems.map(function (it) { return '<li>' + escapeHtml(it) + '</li>'; }).join('');
     if (o.items.length > 2) items += '<li>+' + (o.items.length - 2) + ' más</li>';
-    var btns = '<button type="button" class="adm-btn adm-btn--outline adm-btn--sm" data-view="' + o.id + '">Ver pedido</button>';
+    var btns = '';
     if (o.status !== 'entregado') {
       btns += '<button type="button" class="adm-btn adm-btn--yellow adm-btn--sm" data-advance="' + o.id + '">' + NEXT_LABEL[o.status] + '</button>';
     }
@@ -328,6 +328,7 @@
       '<ul class="adm-card__items">' + items + '</ul>' +
       '<div class="adm-card__pay">' + escapeHtml(o.pay) + '</div>' +
       '<div class="adm-card__total">' + fmt(o.total) + '</div>' +
+      '<button type="button" class="adm-card__view" data-view="' + o.id + '">Ver pedido</button>' +
       '<div class="adm-card__actions">' + btns + '</div>' +
       '</article>'
     );
