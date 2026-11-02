@@ -1142,15 +1142,6 @@
     });
   }
 
-  function renderCartaTop() {
-    var el = document.getElementById('carta-top-list');
-    if (!CARTA_DATA) { el.innerHTML = '<li class="carta-loading">Cargando la carta…</li>'; return; }
-    var picks = TOP_PICKS.map(function (pick) { return findProduct(pick.cat, pick.name); }).filter(Boolean);
-    el.innerHTML = picks.map(function (p) {
-      return '<li><span>' + escapeHtml(p.name) + '</span><span>' + priceHtml(p.price, p.priceDiscount) + '</span></li>';
-    }).join('');
-  }
-
   function renderCartaCategories() {
     var el = document.getElementById('carta-categories');
     if (!CARTA_DATA) { el.innerHTML = '<p class="carta-loading">Cargando la carta…</p>'; return; }
@@ -1508,7 +1499,6 @@
     renderHomeCatGrid();
     renderHomeTop();
     renderCartaChips();
-    renderCartaTop();
     renderCartaCategories();
     applyCartaSearch();
   }
@@ -1593,7 +1583,7 @@
       setTimeout(reveal, 60);
     }).catch(function (err) {
       var msg = '<p class="carta-loading">No pudimos cargar la carta. Probá recargar la página.</p>';
-      ['home-cat-grid', 'home-top-grid', 'carta-chip-list', 'carta-top-list', 'carta-categories'].forEach(function (id) {
+      ['home-cat-grid', 'home-top-grid', 'carta-chip-list', 'carta-categories'].forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.innerHTML = msg;
       });
