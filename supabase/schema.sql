@@ -89,7 +89,18 @@ create table if not exists daily_order_seq (
   seq integer not null default 0
 );
 
-create or replace function next_daily_order_seq() returns integer as $$
+-- RLS activada y sin ninguna policy: nadie puede tocar esta tabla
+-- directamente desde la web ni el panel. Solo puede escribir ahí la
+-- función de abajo, que corre como "security definer" (con los
+-- permisos de quien la creó, no los del rol público) para poder
+-- saltarse esa restricción.
+alter table daily_order_seq enable row level security;
+
+create or replace function next_daily_order_seq() returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
 declare
   today date := (now() at time zone 'America/Argentina/Cordoba')::date;
   n integer;
@@ -99,7 +110,7 @@ begin
     returning seq into n;
   return n;
 end;
-$$ language plpgsql;
+$$;
 
 alter table orders add column if not exists daily_seq integer;
 
