@@ -447,6 +447,17 @@
     return total;
   }
 
+  /* El campo "image" del catálogo (el archivo original de Pedix, sin
+     comprimir) pesa varios MB y es lo que hacía tardar muchísimo el modal.
+     El CDN de Pedix puede devolver el mismo archivo en un tamaño más grande
+     que el thumb de la lista pero igual de liviano; eso es lo que usa el
+     modal. Las fotos subidas por el local (admin) no pasan por este CDN y
+     quedan intactas. */
+  function biggerPhoto(url) {
+    if (!url || url.indexOf('cdn.pedix.app') === -1) return url;
+    return url.replace(/([?&])size=\d+/, '$1size=480').replace(/([?&])quality=\d+/, '$1quality=75');
+  }
+
   /* Mini-galería del modal: una foto grande + flechas y puntitos si el
      producto tiene más de una. Con 0 o 1 foto se muestra igual que antes
      (una sola imagen o el placeholder "Foto real de Fufa"). */
@@ -454,7 +465,7 @@
     var fit = photoFitFor(MODAL.catSlug);
     var photos = (p.photos && p.photos.length) ? p.photos : null;
     if (!photos || photos.length <= 1) {
-      var single = photos ? photos[0] : (p.image || p.thumb);
+      var single = photos ? photos[0] : biggerPhoto(p.thumb);
       return '<div class="modal-gallery photo-wrap" style="aspect-ratio:4/3">' + productImg(single, p.name, '4/3', p.name, fit) + '</div>';
     }
     var idx = MODAL.photoIndex || 0;
@@ -554,8 +565,8 @@
 
     root.innerHTML =
       '<div class="modal-overlay" id="product-modal-overlay">' +
-      '<div class="modal-box" role="dialog" aria-modal="true" aria-label="Agregar ' + escapeHtml(p.name) + '">' +
       '<button type="button" class="modal-close" data-modal-close>Cerrar</button>' +
+      '<div class="modal-box" role="dialog" aria-modal="true" aria-label="Agregar ' + escapeHtml(p.name) + '">' +
       modalGalleryHtml(p) +
       '<h3 class="modal-title">' + escapeHtml(p.name) + '</h3>' +
       '<p class="modal-price">' + priceHtml(p.price, p.priceDiscount) + '</p>' +

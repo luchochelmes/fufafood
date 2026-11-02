@@ -335,8 +335,10 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 @media (min-width:640px){.modal-overlay{align-items:center}}
 .modal-box{background:#FFF8E1;width:100%;max-width:520px;max-height:90vh;overflow:auto;border-radius:14px 14px 0 0;padding:24px clamp(20px,4vw,32px) 28px;position:relative}
 @media (min-width:640px){.modal-box{border-radius:14px}}
-.modal-close{position:absolute;top:14px;right:14px;min-height:36px;padding:0 12px;background:transparent;border:2px solid #0E0E0E;border-radius:6px;font:700 13px 'Work Sans',sans-serif;cursor:pointer}
-.modal-title{font-family:Anton,Impact,sans-serif;font-size:28px;text-transform:uppercase;margin:0;padding-right:70px}
+/* Fuera de .modal-box (que es lo que scrollea) y fijo sobre el overlay, para
+   que nunca quede tapado ni se vaya de la pantalla al scrollear el modal. */
+.modal-close{position:absolute;top:14px;right:14px;z-index:1;min-height:36px;padding:0 12px;background:#FFF8E1;border:2px solid #0E0E0E;border-radius:6px;font:700 13px 'Work Sans',sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.modal-title{font-family:Anton,Impact,sans-serif;font-size:28px;text-transform:uppercase;margin:0}
 
 /* ===== Mini-galería del modal (varias fotos por producto) ===== */
 .modal-gallery{border-radius:10px;overflow:hidden;background:#FFF8E1}
