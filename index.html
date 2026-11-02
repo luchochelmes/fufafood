@@ -25,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Work+Sans:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261102d">
+<link rel="stylesheet" href="styles.css?v=20261102e">
 </head>
 <body>
 
@@ -93,7 +93,8 @@
       <div class="hero-tipo__grid">
         <p class="hero-tipo__desc" id="hero-desc">Hamburguesas, lomitos, pizzas y empanadas en Alta Córdoba. Comé en el local, pedí delivery o alquilá el espacio para tu evento.</p>
         <div class="hero-tipo__btns">
-          <a href="#/carta" class="btn btn-black btn-lift" id="hero-cta-carta">Ver la carta</a>
+          <a href="#/carta" class="btn btn-black btn-lift" id="hero-cta-retiro" data-order-type="retiro">Retirar</a>
+          <a href="#/carta" class="btn btn-black btn-lift" id="hero-cta-delivery" data-order-type="delivery">Delivery</a>
         </div>
       </div>
     </div>
@@ -107,19 +108,6 @@
   </section>
 
   <section class="section-pad">
-    <div class="wrap">
-      <div class="section-head">
-        <div>
-          <h2 class="h2" data-reveal="0">Qué hay para comer</h2>
-          <p class="lead" data-reveal="60">Nueve categorías, todo hecho en el momento. Tocá una y vas directo a esa parte de la carta.</p>
-        </div>
-        <a data-reveal="120" href="#/carta" class="link-strong">Ver la carta completa</a>
-      </div>
-      <ul class="cat-grid" id="home-cat-grid"></ul>
-    </div>
-  </section>
-
-  <section class="section-pad section-pad--top-none">
     <div class="wrap">
       <h2 class="h2" data-reveal="0">Los más pedidos</h2>
       <div class="top-grid" id="home-top-grid"></div>
@@ -362,6 +350,6 @@
 
 <div id="cookie-modal-root"></div>
 
-<script src="script.js?v=20261102d"></script>
+<script src="script.js?v=20261102e"></script>
 </body>
 </html>

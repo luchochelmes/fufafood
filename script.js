@@ -1002,6 +1002,7 @@
   /* ===================== render: home categories grid ===================== */
   function renderHomeCatGrid() {
     var el = document.getElementById('home-cat-grid');
+    if (!el) return;
     if (!CARTA_DATA) { el.innerHTML = '<li class="carta-loading">Cargando la carta…</li>'; return; }
     el.innerHTML = CARTA_DATA.map(function (c, i) {
       var min = catMin(c);
@@ -1143,6 +1144,13 @@
     if (t && t.tagName === 'A') {
       pendingCat = t.getAttribute('data-go-cat');
     }
+  });
+
+  /* Botones "Retirar" / "Delivery" del hero: dejan elegido ese tipo de pedido
+     para cuando se llegue al checkout, además de llevar a la carta. */
+  document.addEventListener('click', function (e) {
+    var ot = e.target.closest('[data-order-type]');
+    if (ot) CHECKOUT.tipo = ot.getAttribute('data-order-type');
   });
 
   function spy() {
@@ -1365,6 +1373,10 @@
     if (eventosSec) eventosSec.hidden = (services.eventos === false);
     var retiroRow = document.getElementById('cond-retiro-row');
     if (retiroRow) retiroRow.hidden = (services.retiro === false);
+    var heroRetiro = document.getElementById('hero-cta-retiro');
+    if (heroRetiro) heroRetiro.hidden = (services.retiro === false);
+    var heroDelivery = document.getElementById('hero-cta-delivery');
+    if (heroDelivery) heroDelivery.hidden = (services.delivery === false);
 
     var zf = document.getElementById('zone-form');
     var zl = document.getElementById('zones-list');
