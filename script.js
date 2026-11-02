@@ -598,6 +598,7 @@
       modalGalleryHtml(p) +
       '<h3 class="modal-title">' + escapeHtml(p.name) + '</h3>' +
       '<p class="modal-price">' + priceHtml(p.price, p.priceDiscount) + '</p>' +
+      (p.desc ? '<p class="modal-desc">' + escapeHtml(p.desc) + '</p>' : '') +
       '<div class="modal-qty"><span class="modal-qty-label">Cantidad</span>' +
       '<span class="stepper">' +
       '<button type="button" data-modal-qty-dec' + (MODAL.qty <= 1 ? ' disabled' : '') + '>−</button>' +
@@ -1022,6 +1023,14 @@
     closeCart();
   }
 
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var el = e.target.closest('[role="button"]');
+    if (!el) return;
+    e.preventDefault();
+    el.click();
+  });
+
   /* -------- delegación de eventos: producto, drawer y checkout -------- */
   document.addEventListener('click', function (e) {
     var add = e.target.closest('[data-add-product]');
@@ -1035,6 +1044,9 @@
       else { openProductModal(addCat, addPid); }
       return;
     }
+
+    var openProd = e.target.closest('[data-open-product]');
+    if (openProd) { openProductModal(openProd.getAttribute('data-cat'), openProd.getAttribute('data-pid')); return; }
 
     var qtyInc = e.target.closest('[data-qty-inc]');
     if (qtyInc) {
@@ -1184,7 +1196,9 @@
   /* Producto tachado + etiqueta "Agotado" cuando el panel lo marcó como no disponible. */
   function soldOutWrap(p, innerHtml) {
     if (!p.soldOut) return innerHtml;
-    return '<li style="opacity:.5">' + innerHtml.replace(/^<li>/, '').replace(/<\/li>$/, '') +
+    var inner = innerHtml.replace(/^<li[^>]*>/, '').replace(/<\/li>$/, '');
+    var openTag = innerHtml.match(/^<li([^>]*)>/);
+    return '<li style="opacity:.5"' + (openTag ? openTag[1] : '') + '>' + inner +
       ' <span style="display:inline-block;background:#E63B2E;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;margin-left:6px">Agotado</span></li>';
   }
 
@@ -1423,7 +1437,7 @@
               '</div>'
             );
           var li = (
-            '<li>' +
+            '<li data-open-product data-cat="' + escapeHtml(c.slug) + '" data-pid="' + escapeHtml(p.id) + '" role="button" tabindex="0" aria-label="Ver ' + escapeHtml(p.name) + '">' +
             '<div class="cat-items__thumb photo-wrap">' + productImg(p.thumb, p.name, '1/1', p.name, photoFitFor(c.slug)) + '</div>' +
             '<div class="cat-items__main">' +
             '<div class="cat-items__toprow"><div class="cat-items__name">' + escapeHtml(p.name) + '</div>' +

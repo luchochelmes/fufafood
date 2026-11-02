@@ -216,7 +216,7 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .cat-group{margin-bottom:28px}
 .cat-group__title{font-weight:700;font-size:16px;margin:0 0 4px}
 .cat-items{list-style:none;margin:0;padding:0}
-.cat-items li{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:2px solid #EFE3BC}
+.cat-items li{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:2px solid #EFE3BC;cursor:pointer}
 /* El buscador de la carta oculta secciones/grupos/filas con [hidden]; sin esto
    el display:grid/flex de arriba gana y el hidden no se nota en pantalla. */
 .cat-section[hidden],
@@ -361,6 +361,7 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .modal-gallery__dot{width:9px;height:9px;border-radius:50%;background:transparent;border:2px solid #0E0E0E;padding:0;cursor:pointer}
 .modal-gallery__dot.is-active{background:#FFD400}
 .modal-price{font-family:Anton,Impact,sans-serif;font-size:20px;margin:6px 0 0}
+.modal-desc{font-size:15px;line-height:1.5;margin:8px 0 0;color:#444}
 .modal-qty{margin:18px 0 4px;display:flex;align-items:center;gap:14px}
 .modal-qty-label{font-weight:700;font-size:14px}
 .opt-group{margin-top:22px}
