@@ -109,7 +109,9 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 
 /* ===== Hero tipográfico ===== */
 .hero-tipo{background:#FFD400;background-size:cover;background-position:center}
-.hero-tipo--photo{background-color:#0E0E0E}
+.hero-tipo--photo{background-color:#0E0E0E;min-height:62vh}
+.hero-tipo--photo .hero-tipo__inner{min-height:62vh;display:flex;flex-direction:column;justify-content:flex-end}
+@media (min-width:1024px){.hero-tipo--photo{min-height:78vh}.hero-tipo--photo .hero-tipo__inner{min-height:78vh}}
 .hero-tipo--photo .hero-tipo__title,.hero-tipo--photo .hero-tipo__desc,.hero-tipo--photo .status-line{color:#fff}
 .hero-tipo--photo .hero-panel{background:rgba(255,255,255,.14);color:#fff}
 .hero-tipo--photo .hero-panel a{color:#FFD400}
