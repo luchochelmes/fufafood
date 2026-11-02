@@ -1225,35 +1225,88 @@
   var HERO_DEFAULT_TITLE = 'Donde el hambre se rinde.';
   var HERO_DEFAULT_DESC = 'Hamburguesas, lomitos, pizzas y empanadas en Alta Córdoba. Comé en el local, pedí delivery o alquilá el espacio para tu evento.';
 
-  function findActivePromo() {
-    if (!CARTA_DATA) return null;
-    for (var i = 0; i < CARTA_DATA.length; i++) {
-      var c = CARTA_DATA[i];
-      for (var j = 0; j < c.products.length; j++) {
-        if (c.products[j].promo && !c.products[j].soldOut) return { catSlug: c.slug, product: c.products[j] };
-      }
-    }
-    return null;
+  function findActivePromos() {
+    if (!CARTA_DATA) return [];
+    var out = [];
+    CARTA_DATA.forEach(function (c) {
+      c.products.forEach(function (p) {
+        if (p.promo && !p.soldOut) out.push({ catSlug: c.slug, product: p });
+      });
+    });
+    return out;
+  }
+
+  /* La idea es que lo primero que se vea al entrar, si hay algo en promo,
+     sea la foto del producto (no solo texto) — y que tocarla te mande
+     directo a pedirlo, igual que cualquier botón "Agregar al pedido" de
+     la carta. Si hay más de uno, se puede pasar de foto con flechas o
+     puntos, como en la galería del modal de producto. */
+  var HERO_PROMO_IDX = 0;
+
+  function heroPromoCardHtml(promos, idx) {
+    var item = promos[idx];
+    var p = item.product;
+    var multi = promos.length > 1;
+    var dots = multi ? promos.map(function (_, i) {
+      return '<button type="button" class="hero-promo-card__dot' + (i === idx ? ' is-active' : '') + '" data-hero-promo-dot="' + i + '" aria-label="Ver promo ' + (i + 1) + '"></button>';
+    }).join('') : '';
+    /* Es un <div role="button"> y no un <button> real porque adentro tiene
+       las flechas de "siguiente/anterior", que SÍ son botones de verdad —
+       un botón real no puede contener otro botón (HTML inválido). */
+    return (
+      '<div class="hero-promo-card__tap" data-add-product data-cat="' + escapeHtml(item.catSlug) + '" data-pid="' + escapeHtml(p.id) + '" role="button" tabindex="0" aria-label="Pedir ' + escapeHtml(p.name) + '">' +
+      '<div class="hero-promo-card__photo photo-wrap" style="aspect-ratio:4/3">' +
+      productImg(p.thumb, p.name, '4/3', p.name) +
+      (multi ? '<button type="button" class="hero-promo-card__arrow hero-promo-card__arrow--prev" data-hero-promo-prev aria-label="Promo anterior">‹</button>' : '') +
+      (multi ? '<button type="button" class="hero-promo-card__arrow hero-promo-card__arrow--next" data-hero-promo-next aria-label="Promo siguiente">›</button>' : '') +
+      '</div>' +
+      '<div class="hero-promo-card__info">' +
+      '<h2 class="hero-promo-card__name">' + escapeHtml(p.name) + '</h2>' +
+      (p.desc ? '<p class="hero-promo-card__desc">' + escapeHtml(p.desc) + '</p>' : '') +
+      '<p class="hero-promo-card__price">' + priceHtml(p.price, p.priceDiscount) + '</p>' +
+      (multi ? '<div class="hero-promo-card__dots">' + dots + '</div>' : '') +
+      '</div>' +
+      '</div>'
+    );
+  }
+
+  function wireHeroPromoCard(promos) {
+    var card = document.getElementById('hero-promo-card');
+    if (!card) return;
+    var prev = card.querySelector('[data-hero-promo-prev]');
+    var next = card.querySelector('[data-hero-promo-next]');
+    if (prev) prev.addEventListener('click', function (e) { e.stopPropagation(); HERO_PROMO_IDX = (HERO_PROMO_IDX - 1 + promos.length) % promos.length; renderHeroPromo(); });
+    if (next) next.addEventListener('click', function (e) { e.stopPropagation(); HERO_PROMO_IDX = (HERO_PROMO_IDX + 1) % promos.length; renderHeroPromo(); });
+    card.querySelectorAll('[data-hero-promo-dot]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) { e.stopPropagation(); HERO_PROMO_IDX = +btn.getAttribute('data-hero-promo-dot'); renderHeroPromo(); });
+    });
   }
 
   function renderHeroPromo() {
-    var found = findActivePromo();
+    var promos = findActivePromos();
     var section = document.getElementById('hero-section');
     var tag = document.getElementById('hero-promo-tag');
     var title = document.getElementById('hero-title');
     var desc = document.getElementById('hero-desc');
-    if (!found) {
+    var card = document.getElementById('hero-promo-card');
+    if (!promos.length) {
       if (section) section.classList.remove('hero-tipo--promo');
       if (tag) tag.hidden = true;
-      if (title) title.textContent = HERO_DEFAULT_TITLE;
-      if (desc) desc.textContent = HERO_DEFAULT_DESC;
+      if (title) { title.hidden = false; title.textContent = HERO_DEFAULT_TITLE; }
+      if (desc) { desc.hidden = false; desc.textContent = HERO_DEFAULT_DESC; }
+      if (card) { card.hidden = true; card.innerHTML = ''; }
       return;
     }
-    var p = found.product;
+    if (HERO_PROMO_IDX >= promos.length) HERO_PROMO_IDX = 0;
     if (section) section.classList.add('hero-tipo--promo');
-    if (tag) { tag.hidden = false; tag.textContent = 'Promo de hoy'; }
-    if (title) title.textContent = p.name + '.';
-    if (desc) desc.textContent = (p.desc ? p.desc + ' ' : '') + 'Hoy a ' + fmt(p.price) + '.';
+    if (tag) { tag.hidden = false; tag.textContent = promos.length > 1 ? 'Promos de hoy' : 'Promo de hoy'; }
+    if (title) title.hidden = true;
+    if (desc) desc.hidden = true;
+    if (card) {
+      card.hidden = false;
+      card.innerHTML = heroPromoCardHtml(promos, HERO_PROMO_IDX);
+      wireHeroPromoCard(promos);
+    }
   }
 
   /* ===================== render: home categories grid ===================== */

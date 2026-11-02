@@ -121,6 +121,29 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .hero-tipo--promo .btn-outline-black{color:#FFF8E1;border-color:#FFF8E1}
 .hero-tipo--promo .btn-outline-black:hover{background:#FFD400;color:#0E0E0E;border-color:#FFD400}
 .status-line{display:flex;align-items:center;gap:8px;margin:0;font-size:15px;font-weight:500}
+
+/* ===== Tarjeta de promo del hero (foto + info, tocable) ===== */
+.hero-promo-card{display:none;margin:20px 0 4px;max-width:560px}
+.hero-promo-card:not([hidden]){display:block}
+.hero-promo-card__tap{display:block;background:#FFF8E1;border-radius:14px;overflow:hidden;box-shadow:0 8px 26px rgba(0,0,0,.22);cursor:pointer}
+.hero-promo-card__photo{position:relative;background:#111}
+.hero-promo-card__info{padding:16px 20px 20px}
+.hero-promo-card__name{font-family:Anton,Impact,sans-serif;font-size:clamp(24px,5vw,32px);line-height:1;text-transform:uppercase;margin:0 0 8px;color:#0E0E0E}
+.hero-promo-card__desc{font-size:14px;line-height:1.5;margin:0 0 10px;color:rgba(14,14,14,.72)}
+.hero-promo-card__price{font-size:20px;font-weight:700;margin:0;color:#0E0E0E}
+.hero-promo-card__arrow{position:absolute;top:50%;transform:translateY(-50%);min-width:36px;min-height:36px;border-radius:50%;background:rgba(255,248,225,.92);border:2px solid #0E0E0E;color:#0E0E0E;font-size:19px;font-weight:700;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}
+.hero-promo-card__arrow:hover{background:#FFD400}
+.hero-promo-card__arrow--prev{left:10px}
+.hero-promo-card__arrow--next{right:10px}
+.hero-promo-card__dots{display:flex;gap:6px;margin-top:4px}
+.hero-promo-card__dot{width:9px;height:9px;border-radius:50%;background:transparent;border:2px solid #0E0E0E;padding:0;cursor:pointer}
+.hero-promo-card__dot.is-active{background:#0E0E0E}
+@media (min-width:640px){
+  .hero-promo-card__tap{display:flex;align-items:stretch}
+  .hero-promo-card__photo{width:40%;flex:none}
+  .hero-promo-card__info{flex:1;display:flex;flex-direction:column;justify-content:center}
+}
+
 .hero-tipo__title{font-size:clamp(42px,11.5vw,168px);line-height:0.95;letter-spacing:0.005em;text-transform:uppercase;margin:20px 0 0 -0.04em}
 .hero-tipo__grid{display:grid;grid-template-columns:minmax(0,1fr);gap:24px 48px;align-items:end;margin-top:clamp(32px,4vw,56px)}
 .hero-tipo__desc{font-size:18px;line-height:1.55;margin:0;max-width:40ch}
