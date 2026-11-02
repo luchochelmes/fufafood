@@ -243,6 +243,15 @@
       if (barCount) barCount.textContent = String(n);
       if (barTotal) barTotal.textContent = fmt(cartSubtotal());
     }
+    /* El toast de "Agregado al pedido" trae un botón "Ver pedido" y se
+       queda unos segundos en pantalla por su propio timer, sin enterarse
+       de si el carrito cambió mientras tanto. Si el pedido quedó vacío
+       (se borró todo, o se acaba de confirmar), no tiene sentido seguir
+       ofreciendo "Ver pedido" — lo sacamos ya. */
+    if (n === 0) {
+      var toast = document.querySelector('.ff-toast.ff-toast--action');
+      if (toast) { toast.hidden = true; clearTimeout(toastTimer); }
+    }
     layoutBottomBars();
   }
 
