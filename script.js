@@ -138,14 +138,21 @@
 
   /* <img> real de producto/categoría con fallback a fotoFufa() si falla o no hay URL.
      Debe ir dentro de un contenedor que fije el tamaño/aspect-ratio (photo-wrap, etc.). */
-  function productImg(url, alt, ratio, fallbackLabel) {
+  function productImg(url, alt, ratio, fallbackLabel, fit) {
     if (!url) return fotoFufa(fallbackLabel || alt, ratio);
     return (
       '<img src="' + escapeHtml(url) + '" alt="' + escapeHtml(alt) + '" loading="lazy" ' +
-      'style="width:100%;height:100%;object-fit:cover;display:block" ' +
+      'style="width:100%;height:100%;object-fit:' + (fit || 'cover') + ';display:block" ' +
       'data-fb-label="' + escapeHtml(fallbackLabel || alt) + '" data-fb-ratio="' + escapeHtml(ratio || '4/3') + '" ' +
       'onerror="window.__ffImgErr(this)">'
     );
+  }
+
+  /* Bebidas, tragos y helados vienen con fotos de fondo transparente (botellas,
+     copas) que al recortarse con "cover" dejan ver poco del producto. Para esas
+     categorías mostramos la foto completa ("contain") en vez de recortada. */
+  function photoFitFor(slug) {
+    return (slug === 'bebidas' || slug === 'tragos-solo-para-local' || slug === 'helados') ? 'contain' : 'cover';
   }
 
   /* Precio con soporte de descuento: tachado el original y destacado el de oferta. */
@@ -390,10 +397,11 @@
      producto tiene más de una. Con 0 o 1 foto se muestra igual que antes
      (una sola imagen o el placeholder "Foto real de Fufa"). */
   function modalGalleryHtml(p) {
+    var fit = photoFitFor(MODAL.catSlug);
     var photos = (p.photos && p.photos.length) ? p.photos : null;
     if (!photos || photos.length <= 1) {
       var single = photos ? photos[0] : (p.image || p.thumb);
-      return '<div class="modal-gallery photo-wrap" style="aspect-ratio:4/3">' + productImg(single, p.name, '4/3', p.name) + '</div>';
+      return '<div class="modal-gallery photo-wrap" style="aspect-ratio:4/3">' + productImg(single, p.name, '4/3', p.name, fit) + '</div>';
     }
     var idx = MODAL.photoIndex || 0;
     if (idx < 0) idx = photos.length - 1;
@@ -404,7 +412,7 @@
     }).join('');
     return (
       '<div class="modal-gallery photo-wrap" style="aspect-ratio:4/3">' +
-      productImg(photos[idx], p.name, '4/3', p.name) +
+      productImg(photos[idx], p.name, '4/3', p.name, fit) +
       '<button type="button" class="modal-gallery__arrow modal-gallery__arrow--prev" data-modal-photo-prev aria-label="Foto anterior">‹</button>' +
       '<button type="button" class="modal-gallery__arrow modal-gallery__arrow--next" data-modal-photo-next aria-label="Foto siguiente">›</button>' +
       '</div>' +
@@ -1094,7 +1102,7 @@
           var desc = p.desc ? '<div class="cat-items__desc">' + escapeHtml(p.desc) + '</div>' : '';
           var li = (
             '<li>' +
-            '<div class="cat-items__thumb photo-wrap">' + productImg(p.thumb, p.name, '1/1', p.name) + '</div>' +
+            '<div class="cat-items__thumb photo-wrap">' + productImg(p.thumb, p.name, '1/1', p.name, photoFitFor(c.slug)) + '</div>' +
             '<div class="cat-items__main">' +
             '<div class="cat-items__toprow"><div class="cat-items__name">' + escapeHtml(p.name) + '</div>' +
             '<span class="cat-items__price">' + priceHtml(p.price, p.priceDiscount) + '</span></div>' +
@@ -1377,7 +1385,7 @@
     var off = ADMIN.receiving === false;
     var notice = document.getElementById('receiving-notice');
     if (notice) notice.hidden = !off;
-    document.querySelectorAll('#hero-cta-pedi, .btn-pedi-header').forEach(function (btn) {
+    document.querySelectorAll('.btn-pedi-header, .cart-icon-btn').forEach(function (btn) {
       if (btn.dataset.origHtml === undefined) btn.dataset.origHtml = btn.innerHTML;
       if (off) {
         btn.innerHTML = 'No disponible';
@@ -1475,6 +1483,18 @@
 
     initObserver();
     initEventForm();
+
+    document.querySelectorAll('.logo').forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        closeMenu();
+        /* Si ya estamos en el inicio, el hash no cambia y hashchange no dispara
+           route(); forzamos el scroll arriba manualmente. */
+        if (location.hash === '#/' || location.hash === '' || location.hash === '#') {
+          e.preventDefault();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      });
+    });
 
     document.getElementById('menu-open-btn').addEventListener('click', openMenu);
     document.getElementById('menu-close-btn').addEventListener('click', closeMenu);
