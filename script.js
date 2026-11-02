@@ -1917,6 +1917,16 @@
       var ratio = el.getAttribute('data-photo-ratio') || '4/3';
       el.innerHTML = t[1] ? productImg(t[1], t[2], ratio, t[2]) : fotoFufa(t[2], ratio);
     });
+    var hero = document.getElementById('hero-section');
+    if (hero) {
+      if (photos.hero) {
+        hero.classList.add('hero-tipo--photo');
+        hero.style.backgroundImage = 'linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.6)), url("' + photos.hero + '")';
+      } else {
+        hero.classList.remove('hero-tipo--photo');
+        hero.style.backgroundImage = '';
+      }
+    }
   }
 
   var RAW_CARTA_DATA = null;

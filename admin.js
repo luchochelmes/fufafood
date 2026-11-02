@@ -922,7 +922,7 @@
     if (!wrap || !CARTA_DATA) return;
 
     var inicioSlots = [
-      fotoSlotHtml('hero', 'Portada / hero', state.photos.hero, 'La portada actual es tipográfica (sin foto); se guarda para uso futuro.'),
+      fotoSlotHtml('hero', 'Portada / hero', state.photos.hero, 'Se muestra de fondo en el inicio. Sin foto, queda el fondo amarillo.'),
       fotoSlotHtml('local', 'El local', state.photos.local, null),
       fotoSlotHtml('delivery', 'Delivery', state.photos.delivery, null),
       fotoSlotHtml('eventos', 'Eventos', state.photos.eventos, null)
