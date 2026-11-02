@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel del local — Fufa Food</title>
+<!--
+  AVISO DE SEGURIDAD: este panel NO tiene autenticación. Es un proyecto de
+  demostración local. Antes de exponerlo en un dominio público hay que
+  agregar un login real (server-side) y no confiar en localStorage para
+  nada sensible.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Work+Sans:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<!-- ===================== MOBILE TOP BAR ===================== -->
+<header class="adm-topbar">
+  <span class="adm-topbar__logo">FUFA</span>
+  <span class="adm-topbar__sub">Panel</span>
+  <span class="adm-topbar__status">
+    <span class="adm-dot" id="m-status-dot"></span>
+    <span id="m-status-text"></span>
+  </span>
+</header>
+
+<div class="adm-shell">
+
+  <!-- ===================== SIDEBAR (desktop) ===================== -->
+  <aside class="adm-side">
+    <div class="adm-side__brand">
+      <div class="adm-side__logo">FUFA FOOD</div>
+      <div class="adm-side__tag">Panel del local</div>
+    </div>
+    <nav class="adm-nav" aria-label="Secciones">
+      <button type="button" class="adm-nav__btn" data-section="pedidos">Pedidos<span class="adm-badge" id="badge-pedidos" hidden>0</span></button>
+      <button type="button" class="adm-nav__btn" data-section="carta">Carta y precios</button>
+      <button type="button" class="adm-nav__btn" data-section="delivery">Delivery</button>
+      <button type="button" class="adm-nav__btn" data-section="fotos">Fotos</button>
+      <button type="button" class="adm-nav__btn" data-section="servicios">Servicios y horarios</button>
+    </nav>
+    <div class="adm-side__foot">
+      <div class="adm-side__status">
+        <span class="adm-dot" id="side-status-dot"></span>
+        <span id="side-status-text">Abierto</span>
+      </div>
+      <div class="adm-side__saved" id="saved-text">Los cambios se guardan solos</div>
+      <a href="index.html" target="_blank" rel="noopener" class="adm-side__link">Ver la web →</a>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <main class="adm-main">
+
+    <!-- ---------- PEDIDOS ---------- -->
+    <section class="adm-section" id="sec-pedidos" data-sec="pedidos">
+      <div class="adm-head">
+        <div>
+          <h1 class="adm-h1">Pedidos</h1>
+          <p class="adm-sub" id="pedidos-resumen"></p>
+        </div>
+        <label class="adm-switch adm-switch--inline">
+          <input type="checkbox" id="receiving-toggle" checked>
+          <span class="adm-switch__track"><span class="adm-switch__thumb"></span></span>
+          <span class="adm-switch__label">Recibiendo pedidos</span>
+        </label>
+      </div>
+
+      <div class="adm-banner adm-banner--danger" id="paused-banner" hidden>
+        Pedidos pausados. La web muestra "Ahora no estamos tomando pedidos" hasta que lo vuelvas a prender.
+      </div>
+
+      <div class="adm-kanban-tabs" id="kanban-tabs"></div>
+
+      <div class="adm-kanban" id="kanban-board"></div>
+    </section>
+
+    <!-- ---------- CARTA ---------- -->
+    <section class="adm-section" id="sec-carta" data-sec="carta" hidden>
+      <div class="adm-head">
+        <div>
+          <h1 class="adm-h1">Carta y precios</h1>
+          <p class="adm-sub">Lo que cambies acá se ve en la web al instante.</p>
+        </div>
+        <button type="button" class="adm-btn adm-btn--dark" id="pct-toggle-btn">Ajustar precios por %</button>
+      </div>
+
+      <div class="adm-panel adm-panel--dark" id="pct-panel" hidden>
+        <div class="adm-field-row">
+          <label class="adm-field">
+            <span>Porcentaje</span>
+            <input type="number" id="pct-input" step="1" placeholder="10" inputmode="numeric">
+          </label>
+          <label class="adm-field">
+            <span>Aplicar a</span>
+            <select id="pct-scope">
+              <option value="all">Toda la carta</option>
+              <option value="cat">Solo esta categoría</option>
+            </select>
+          </label>
+          <label class="adm-check">
+            <input type="checkbox" id="pct-round">
+            <span>Redondear a $100</span>
+          </label>
+        </div>
+        <p class="adm-hint" id="pct-preview"></p>
+        <div class="adm-field-row">
+          <button type="button" class="adm-btn adm-btn--yellow" id="pct-apply-btn">Aplicar</button>
+        </div>
+        <p class="adm-hint adm-hint--undo" id="pct-undo-wrap" hidden>
+          Precios actualizados. <button type="button" class="adm-link-btn" id="pct-undo-btn">Deshacer</button>
+        </p>
+      </div>
+
+      <div class="adm-tabs" id="cat-tabs"></div>
+
+      <div id="cat-editor"></div>
+    </section>
+
+    <!-- ---------- DELIVERY ---------- -->
+    <section class="adm-section" id="sec-delivery" data-sec="delivery" hidden>
+      <div class="adm-head">
+        <div>
+          <h1 class="adm-h1">Hasta dónde llegamos</h1>
+          <p class="adm-sub">Las zonas y el círculo del mapa se actualizan juntos.</p>
+        </div>
+      </div>
+
+      <div class="adm-delivery-grid">
+        <div id="delivery-map" class="adm-map"></div>
+        <div class="adm-zones" id="zones-editor"></div>
+      </div>
+
+      <button type="button" class="adm-btn adm-btn--outline" id="add-zone-btn">+ Agregar otra zona</button>
+    </section>
+
+    <!-- ---------- FOTOS ---------- -->
+    <section class="adm-section" id="sec-fotos" data-sec="fotos" hidden>
+      <div class="adm-head">
+        <div>
+          <h1 class="adm-h1">Fotos de la web</h1>
+          <p class="adm-sub">Subí fotos reales sacadas en el local, mejor horizontales. Reemplazan el placeholder "Foto real de Fufa".</p>
+        </div>
+      </div>
+      <div id="fotos-groups"></div>
+    </section>
+
+    <!-- ---------- SERVICIOS ---------- -->
+    <section class="adm-section" id="sec-servicios" data-sec="servicios" hidden>
+      <div class="adm-head">
+        <div>
+          <h1 class="adm-h1">Servicios y horarios</h1>
+          <p class="adm-sub">Prendé o apagá cada servicio. La web se adapta sola.</p>
+        </div>
+      </div>
+
+      <div class="adm-services-grid" id="services-grid"></div>
+
+      <h2 class="adm-h2" style="margin-top:40px">Horarios</h2>
+      <div class="adm-hours" id="hours-editor"></div>
+
+      <div class="adm-panel adm-panel--dark">
+        <h2 class="adm-h2">Estado ahora</h2>
+        <div class="adm-radio-row" id="estado-radio">
+          <label class="adm-radio"><input type="radio" name="estado" value="auto" checked><span>Según horario</span></label>
+          <label class="adm-radio"><input type="radio" name="estado" value="abierto"><span>Abierto</span></label>
+          <label class="adm-radio"><input type="radio" name="estado" value="cerrado"><span>Cerrado</span></label>
+        </div>
+        <p class="adm-hint" id="estado-preview"></p>
+      </div>
+
+      <div class="adm-panel">
+        <h2 class="adm-h2">Eventos y contacto</h2>
+        <div class="adm-field-row">
+          <label class="adm-field">
+            <span>Capacidad para eventos (personas)</span>
+            <input type="number" id="svc-capacidad">
+          </label>
+          <label class="adm-field">
+            <span>WhatsApp del local</span>
+            <input type="text" id="svc-whatsapp" placeholder="5493510000000">
+          </label>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ===================== BOTTOM NAV (mobile) ===================== -->
+<nav class="adm-bottomnav" aria-label="Secciones">
+  <button type="button" class="adm-bottomnav__btn" data-section="pedidos">Pedidos<span class="adm-badge" id="badge-pedidos-m" hidden>0</span></button>
+  <button type="button" class="adm-bottomnav__btn" data-section="carta">Carta</button>
+  <button type="button" class="adm-bottomnav__btn" data-section="delivery">Delivery</button>
+  <button type="button" class="adm-bottomnav__btn" data-section="fotos">Fotos</button>
+  <button type="button" class="adm-bottomnav__btn" data-section="servicios">Ajustes</button>
+</nav>
+
+<div id="photo-modal-root"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,1495 @@
+(function () {
+  'use strict';
+
+  /* ===================== panel del local (admin) ===================== */
+  /* Clave fija compartida con admin.js. Si está vacía (panel nunca usado) el
+     sitio se comporta exactamente igual que antes: sin overrides. */
+  var ADMIN_KEY = 'fufaAdminState_v1';
+  function loadAdmin() {
+    try {
+      var raw = window.localStorage.getItem(ADMIN_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) { return {}; }
+  }
+  var ADMIN = loadAdmin();
+
+  /* ===================== DATA ===================== */
+  var WA, waText, waDefault, waOrder;
+  function recomputeWa() {
+    WA = (ADMIN.whatsapp || '5493510000000');
+    waText = function (msg) { return 'https://wa.me/' + WA + '?text=' + encodeURIComponent(msg); };
+    waDefault = waText('Hola Fufa!');
+    waOrder = waText('Hola Fufa! Quiero hacer un pedido.');
+  }
+  recomputeWa();
+
+  var fmt = function (n) { return '$' + n.toLocaleString('es-AR'); };
+  var norm = function (s) {
+    return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  };
+
+  /* Catálogo real: se carga desde data-carta.json (ver init). */
+  var CARTA_DATA = null;
+
+  /* Elegidos a mano como "más pedidos" (no viene marcado en los datos reales):
+     una hamburguesa top, un lomito, una pizza y una docena de empanadas. */
+  var TOP_PICKS = [
+    { cat: 'hamburguesas', name: 'BIG FUFA' },
+    { cat: 'lomitos', name: 'ESPECIAL' },
+    { cat: 'pizzas', name: 'ESPECIAL' },
+    { cat: 'empanadas', name: 'DOCENA EMPANADAS MIXTAS' }
+  ];
+
+  /* Textos editoriales por categoría (no vienen en el catálogo). Los slugs
+     coinciden con los de data-carta.json. */
+  var CAT_META = {
+    hamburguesas: { line1: 'Medallones a la plancha, armadas en el momento.', examples: 'De la simple a la cuádruple, la Big Fufa y tres veggies.' },
+    lomitos: { line1: 'Pan grande y lomo a la plancha.', examples: 'Completo, especial, roquefort, cuatro quesos y de pollo.' },
+    sandwiches: { line1: 'Milanesa en pan, como corresponde.', examples: 'Milanesa simple, completa, argentina y la Fufa veggie.' },
+    empanadas: { line1: 'Por unidad o por docena.', examples: 'Árabes, criollas, jamón y queso, pollo. Por unidad o docena.' },
+    pizzas: { line1: 'Entera o media.', examples: 'Diez gustos, de la muzza a la de champiñones. Entera o media.' },
+    frituras: { line1: 'Para acompañar o para pedir solas.', examples: 'Fritas solas, con huevo, con bacon y cheddar, y aros de cebolla.' },
+    bebidas: { line1: 'Frías, como tienen que estar.', examples: 'Gaseosas, aguas y cervezas, en lata, botella o retornable.' },
+    helados: { line1: 'Para cerrar.', examples: 'Palitos bombón, bombones suizo, escocés y Dubai, y tacitas combi.' },
+    'tragos-solo-para-local': { line1: 'Vení a tomarlos acá.', soloLocal: true, examples: 'Fernet, gin, vodka, gancia, cinzano y vino, por medida o botella.' }
+  };
+
+  function catMin(c) {
+    var min = null;
+    (c.products || []).forEach(function (p) {
+      if (typeof p.price === 'number' && (min === null || p.price < min)) min = p.price;
+    });
+    return min;
+  }
+
+  function findProduct(catSlug, name) {
+    if (!CARTA_DATA) return null;
+    var c = CARTA_DATA.filter(function (cc) { return cc.slug === catSlug; })[0];
+    if (!c) return null;
+    return c.products.filter(function (p) { return p.name === name; })[0] || null;
+  }
+
+  var ZONES_DEFAULT = [
+    { name: 'Zona 1', cost: 1500, time: '25–35 min', km: 'hasta 1,5 km', barrios: ['Alta Córdoba', 'Cofico', 'General Bustos', 'Providencia'] },
+    { name: 'Zona 2', cost: 2500, time: '35–45 min', km: 'de 1,5 a 3 km', barrios: ['Pueyrredón', 'General Paz', 'Las Margaritas', 'Villa Cabrera', 'Centro'] },
+    { name: 'Zona 3', cost: 3500, time: '45–55 min', km: 'de 3 a 4,5 km', barrios: ['Juniors', 'San Martín', 'Alberdi', 'Marqués de Sobremonte'] }
+  ];
+  /* Si el panel guardó zonas propias, reemplazan por completo a las de fábrica
+     (misma forma: name/cost/time/km/barrios). Las zonas apagadas no se listan. */
+  var ZONES;
+  function recomputeZones() {
+    ZONES = (ADMIN.zones && ADMIN.zones.length)
+      ? ADMIN.zones.filter(function (z) { return z.on !== false; })
+      : ZONES_DEFAULT;
+  }
+  recomputeZones();
+
+  var HOURS_DEFAULT = { 0: [19, 24], 2: [19, 24], 3: [19, 24], 4: [19, 24], 5: [19, 24], 6: [19, 24] };
+  /* ADMIN.hours (si existe) viene con índice Lunes=0..Domingo=6, como lo usa
+     el panel. getDay() nativo usa Domingo=0..Sábado=6, así que convertimos
+     con jsIndex = (adminIndex + 1) % 7 antes de usarlo acá. */
+  var HOURS;
+  function recomputeHours() {
+    if (!ADMIN.hours || !ADMIN.hours.length) { HOURS = HOURS_DEFAULT; return; }
+    var out = {};
+    ADMIN.hours.forEach(function (day, adminIdx) {
+      if (!day || !day.open) return;
+      var jsIdx = (adminIdx + 1) % 7;
+      var from = parseInt(day.from, 10);
+      var to = parseInt(day.to, 10);
+      if (isNaN(from) || isNaN(to)) return;
+      if (to === 0) to = 24;
+      out[jsIdx] = [from, to];
+    });
+    HOURS = Object.keys(out).length ? out : HOURS_DEFAULT;
+  }
+  recomputeHours();
+  var DAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+  /* ===================== helpers ===================== */
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function fotoFufa(label, ratio) {
+    return '<div class="foto-fufa" style="aspect-ratio:' + (ratio || '4/3') + '">' +
+      '<span class="foto-fufa__badge">Foto real de Fufa · ' + escapeHtml(label) + '</span>' +
+      '</div>';
+  }
+
+  function renderStaticPhotos() {
+    document.querySelectorAll('[data-photo-label]').forEach(function (el) {
+      el.innerHTML = fotoFufa(el.getAttribute('data-photo-label'), el.getAttribute('data-photo-ratio') || '4/3');
+    });
+  }
+
+  /* Si la imagen externa (Pedix/GCS) no carga, reemplazamos su contenedor
+     por el placeholder "Foto real de Fufa" que ya existe en el diseño. */
+  function handleProductImgError(img) {
+    var wrap = img.parentElement;
+    if (!wrap) return;
+    var label = img.getAttribute('data-fb-label') || '';
+    var ratio = img.getAttribute('data-fb-ratio') || '4/3';
+    wrap.innerHTML = fotoFufa(label, ratio);
+  }
+  window.__ffImgErr = handleProductImgError;
+
+  /* <img> real de producto/categoría con fallback a fotoFufa() si falla o no hay URL.
+     Debe ir dentro de un contenedor que fije el tamaño/aspect-ratio (photo-wrap, etc.). */
+  function productImg(url, alt, ratio, fallbackLabel) {
+    if (!url) return fotoFufa(fallbackLabel || alt, ratio);
+    return (
+      '<img src="' + escapeHtml(url) + '" alt="' + escapeHtml(alt) + '" loading="lazy" ' +
+      'style="width:100%;height:100%;object-fit:cover;display:block" ' +
+      'data-fb-label="' + escapeHtml(fallbackLabel || alt) + '" data-fb-ratio="' + escapeHtml(ratio || '4/3') + '" ' +
+      'onerror="window.__ffImgErr(this)">'
+    );
+  }
+
+  /* Precio con soporte de descuento: tachado el original y destacado el de oferta. */
+  function priceHtml(price, priceDiscount) {
+    if (typeof priceDiscount === 'number' && priceDiscount < price) {
+      return '<span class="cat-items__price-old">' + fmt(price) + '</span> <span class="cat-items__price-new">' + fmt(priceDiscount) + '</span>';
+    }
+    return fmt(price);
+  }
+
+  /* Bloque colapsable e informativo de extras/toppings de un producto. */
+  function extrasHtml(options) {
+    if (!options || !options.length) return '';
+    var groups = options.map(function (o) {
+      if (o.rangeType === 'fixed' && o.qty && o.min) {
+        var flavorItems = o.items.map(function (it) {
+          return '<li class="cat-extras__item">' + escapeHtml(it.name) + '</li>';
+        }).join('');
+        return (
+          '<div class="cat-extras__group"><p class="cat-extras__group-title">Elegís los sabores (' + o.min + ' unidades)</p>' +
+          '<ul class="cat-extras__list">' + flavorItems + '</ul></div>'
+        );
+      }
+      var items = o.items.map(function (it) {
+        if (it.price > 0) {
+          return (
+            '<li class="cat-extras__item cat-extras__item--extra"><span>' + escapeHtml(it.name) + '</span>' +
+            '<span class="cat-extras__item-price">+ ' + fmt(it.price) + '</span></li>'
+          );
+        }
+        return '<li class="cat-extras__item">' + escapeHtml(it.name) + '</li>';
+      }).join('');
+      return (
+        '<div class="cat-extras__group"><p class="cat-extras__group-title">' + escapeHtml(o.name || 'Opciones') + '</p>' +
+        '<ul class="cat-extras__list">' + items + '</ul></div>'
+      );
+    }).join('');
+    return '<details class="cat-extras"><summary>Ver extras y toppings</summary>' + groups + '</details>';
+  }
+
+  /* ===================== CARRITO ===================== */
+  /* Carrito real: se persiste en localStorage y sobrevive recargas, pero se
+     vacía al confirmar el pedido. Cada línea guarda el producto, la cantidad
+     y los toppings elegidos (pagos o gratis) para poder armar el ticket de
+     WhatsApp con el formato exacto que usaba Pedix. */
+  var CART_KEY = 'fufaCart_v1';
+  var SEQ_KEY = 'fufaOrderSeq';
+
+  function loadCart() {
+    try {
+      var raw = window.localStorage.getItem(CART_KEY);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+  var CART = loadCart();
+
+  function saveCart() {
+    try { window.localStorage.setItem(CART_KEY, JSON.stringify(CART)); } catch (e) { /* storage lleno o bloqueado: seguimos sin persistir */ }
+    updateCartBadges();
+  }
+
+  function cartUnits() {
+    return CART.reduce(function (s, l) { return s + l.qty; }, 0);
+  }
+
+  function lineToppingsTotal(line) {
+    return (line.toppings || []).reduce(function (s, t) { return s + (t.price || 0); }, 0);
+  }
+
+  function linePrice(line) {
+    return line.qty * (line.unitPrice + lineToppingsTotal(line));
+  }
+
+  function cartSubtotal() {
+    return CART.reduce(function (s, l) { return s + linePrice(l); }, 0);
+  }
+
+  function updateCartBadges() {
+    var n = cartUnits();
+    document.querySelectorAll('[data-cart-badge]').forEach(function (el) {
+      el.textContent = String(n);
+      el.hidden = n === 0;
+    });
+  }
+
+  function nextOrderSeq() {
+    var cur = parseInt(window.localStorage.getItem(SEQ_KEY) || '0', 10);
+    if (isNaN(cur) || cur < 0) cur = 0;
+    var next = cur + 1;
+    try { window.localStorage.setItem(SEQ_KEY, String(next)); } catch (e) { /* sin persistencia, seguimos con next en memoria */ }
+    return next;
+  }
+
+  function randOrderCode() {
+    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    var s = '';
+    for (var i = 0; i < 12; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
+    return s.slice(0, 4) + '-' + s.slice(4, 8) + '-' + s.slice(8, 12);
+  }
+
+  /* Fecha/hora de Argentina, formato DD/MM/AA - HH:MMhs (24hs, con ceros). */
+  function argDateStr(d) {
+    var parts = {};
+    try {
+      new Intl.DateTimeFormat('es-AR', {
+        timeZone: 'America/Argentina/Cordoba',
+        day: '2-digit', month: '2-digit', year: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      }).formatToParts(d).forEach(function (p) { parts[p.type] = p.value; });
+    } catch (e) {
+      parts = {
+        day: String(d.getDate()).padStart(2, '0'),
+        month: String(d.getMonth() + 1).padStart(2, '0'),
+        year: String(d.getFullYear()).slice(-2),
+        hour: String(d.getHours()).padStart(2, '0'),
+        minute: String(d.getMinutes()).padStart(2, '0')
+      };
+    }
+    var hh = parts.hour === '24' ? '00' : parts.hour;
+    return parts.day + '/' + parts.month + '/' + parts.year + ' - ' + hh + ':' + parts.minute + 'hs';
+  }
+
+  function findProductById(catSlug, pid) {
+    if (!CARTA_DATA) return null;
+    var c = CARTA_DATA.filter(function (cc) { return cc.slug === catSlug; })[0];
+    if (!c) return null;
+    return c.products.filter(function (p) { return p.id === pid; })[0] || null;
+  }
+
+  /* -------- modal de producto: cantidad + grupos de opciones -------- */
+  var MODAL = null; /* { catSlug, catName, group, product, qty, any:{gi:{name:bool}}, fixed:{gi:{name:qty}} } */
+
+  function openProductModal(catSlug, pid) {
+    var c = CARTA_DATA.filter(function (cc) { return cc.slug === catSlug; })[0];
+    var p = findProductById(catSlug, pid);
+    if (!c || !p) return;
+    MODAL = { catSlug: c.slug, catName: c.name, group: p.group || '', product: p, qty: 1, any: {}, fixed: {}, photoIndex: 0 };
+    (p.options || []).forEach(function (o, gi) {
+      if (o.rangeType === 'fixed' && o.qty && o.min) {
+        MODAL.fixed[gi] = {};
+        o.items.forEach(function (it) { MODAL.fixed[gi][it.name] = 0; });
+      } else {
+        MODAL.any[gi] = {};
+      }
+    });
+    renderModal();
+    document.getElementById('product-modal-root').hidden = false;
+  }
+
+  function closeProductModal() {
+    MODAL = null;
+    var root = document.getElementById('product-modal-root');
+    if (root) { root.hidden = true; root.innerHTML = ''; }
+  }
+
+  /* ===================== cookies (consentimiento) ===================== */
+  var COOKIE_KEY = 'fufaCookieConsent_v1';
+  function loadCookiePrefs() {
+    try {
+      var raw = window.localStorage.getItem(COOKIE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  var cookiePrefs = loadCookiePrefs(); /* null = todavía no eligió */
+
+  function showCookieBanner() {
+    var el = document.getElementById('cookie-banner');
+    if (el) el.hidden = false;
+  }
+  function hideCookieBanner() {
+    var el = document.getElementById('cookie-banner');
+    if (el) el.hidden = true;
+  }
+
+  function openCookieModal() {
+    var root = document.getElementById('cookie-modal-root');
+    if (!root) return;
+    var p = cookiePrefs || { necessary: true, analytics: false, marketing: false };
+    root.innerHTML =
+      '<div class="cookie-modal-overlay" id="cookie-modal-overlay">' +
+      '<div class="cookie-modal-box" role="dialog" aria-modal="true" aria-label="Preferencias de cookies">' +
+      '<h3>Preferencias</h3>' +
+      '<p>Elegí qué querés permitir. Lo podés cambiar cuando quieras desde "Cookies" en el pie de página.</p>' +
+      '<div class="cookie-pref"><div><p class="cookie-pref__name">Necesarias</p><p class="cookie-pref__desc">Carrito de compra y recordar tu elección. El sitio no funciona sin esto.</p></div><input type="checkbox" checked disabled aria-label="Necesarias (siempre activas)"></div>' +
+      '<div class="cookie-pref"><div><p class="cookie-pref__name">Analíticas</p><p class="cookie-pref__desc">Hoy no hay ninguna instalada. Serviría a futuro para medir qué páginas se visitan más.</p></div><input type="checkbox" id="cm-analytics"' + (p.analytics ? ' checked' : '') + ' aria-label="Analíticas"></div>' +
+      '<div class="cookie-pref"><div><p class="cookie-pref__name">Marketing</p><p class="cookie-pref__desc">Hoy no hay ninguna instalada. Serviría a futuro para publicidad o integraciones con redes sociales.</p></div><input type="checkbox" id="cm-marketing"' + (p.marketing ? ' checked' : '') + ' aria-label="Marketing"></div>' +
+      '<div class="cookie-modal-actions">' +
+      '<button type="button" class="btn btn-outline-black" data-cookie-modal-close>Cancelar</button>' +
+      '<button type="button" class="btn btn-yellow" id="cookie-save-prefs">Guardar preferencias</button>' +
+      '</div></div></div>';
+  }
+  function closeCookieModal() {
+    var root = document.getElementById('cookie-modal-root');
+    if (root) root.innerHTML = '';
+  }
+  function applyCookieChoice(prefs) {
+    cookiePrefs = prefs;
+    try { window.localStorage.setItem(COOKIE_KEY, JSON.stringify(prefs)); } catch (e) { /* sin consentimiento guardado, se vuelve a preguntar la próxima visita */ }
+    hideCookieBanner();
+    closeCookieModal();
+  }
+
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('#cookie-accept')) { applyCookieChoice({ necessary: true, analytics: true, marketing: true }); return; }
+    if (e.target.closest('#cookie-reject')) { applyCookieChoice({ necessary: true, analytics: false, marketing: false }); return; }
+    if (e.target.closest('#cookie-customize') || e.target.closest('#footer-cookie-btn') || e.target.closest('#legal-open-cookie-settings')) { openCookieModal(); return; }
+    if (e.target.closest('[data-cookie-modal-close]') || e.target.id === 'cookie-modal-overlay') { closeCookieModal(); return; }
+    if (e.target.closest('#cookie-save-prefs')) {
+      var a = document.getElementById('cm-analytics'), m = document.getElementById('cm-marketing');
+      applyCookieChoice({ necessary: true, analytics: !!(a && a.checked), marketing: !!(m && m.checked) });
+      return;
+    }
+  });
+
+  function modalFixedOk() {
+    if (!MODAL) return true;
+    var ok = true;
+    (MODAL.product.options || []).forEach(function (o, gi) {
+      if (o.rangeType === 'fixed' && o.qty && o.min) {
+        var sum = 0;
+        for (var k in MODAL.fixed[gi]) sum += MODAL.fixed[gi][k];
+        if (sum !== o.min) ok = false;
+      }
+    });
+    return ok;
+  }
+
+  function modalExtrasTotal() {
+    if (!MODAL) return 0;
+    var total = 0;
+    (MODAL.product.options || []).forEach(function (o, gi) {
+      if (o.rangeType === 'fixed' && o.qty && o.min) return; /* sabores, siempre precio 0 */
+      o.items.forEach(function (it) {
+        if (MODAL.any[gi] && MODAL.any[gi][it.name]) total += (it.price || 0);
+      });
+    });
+    return total;
+  }
+
+  /* Mini-galería del modal: una foto grande + flechas y puntitos si el
+     producto tiene más de una. Con 0 o 1 foto se muestra igual que antes
+     (una sola imagen o el placeholder "Foto real de Fufa"). */
+  function modalGalleryHtml(p) {
+    var photos = (p.photos && p.photos.length) ? p.photos : null;
+    if (!photos || photos.length <= 1) {
+      var single = photos ? photos[0] : (p.image || p.thumb);
+      return '<div class="modal-gallery photo-wrap" style="aspect-ratio:4/3">' + productImg(single, p.name, '4/3', p.name) + '</div>';
+    }
+    var idx = MODAL.photoIndex || 0;
+    if (idx < 0) idx = photos.length - 1;
+    if (idx > photos.length - 1) idx = 0;
+    MODAL.photoIndex = idx;
+    var dots = photos.map(function (ph, i) {
+      return '<button type="button" class="modal-gallery__dot' + (i === idx ? ' is-active' : '') + '" data-modal-photo-dot="' + i + '" aria-label="Ver foto ' + (i + 1) + '"></button>';
+    }).join('');
+    return (
+      '<div class="modal-gallery photo-wrap" style="aspect-ratio:4/3">' +
+      productImg(photos[idx], p.name, '4/3', p.name) +
+      '<button type="button" class="modal-gallery__arrow modal-gallery__arrow--prev" data-modal-photo-prev aria-label="Foto anterior">‹</button>' +
+      '<button type="button" class="modal-gallery__arrow modal-gallery__arrow--next" data-modal-photo-next aria-label="Foto siguiente">›</button>' +
+      '</div>' +
+      '<div class="modal-gallery__dots">' + dots + '</div>'
+    );
+  }
+
+  function renderModal() {
+    var root = document.getElementById('product-modal-root');
+    if (!root || !MODAL) return;
+    var p = MODAL.product;
+    var groupsHtml = (p.options || []).map(function (o, gi) {
+      if (o.rangeType === 'fixed' && o.qty && o.min) {
+        var sum = 0;
+        for (var k in MODAL.fixed[gi]) sum += MODAL.fixed[gi][k];
+        var hintClass = sum === o.min ? 'opt-group__hint is-ok' : 'opt-group__hint';
+        var hintText = sum === o.min ? 'Elegiste ' + sum + ' de ' + o.min + ' ✓' : 'Elegiste ' + sum + ' de ' + o.min;
+        var rows = o.items.map(function (it) {
+          var count = MODAL.fixed[gi][it.name] || 0;
+          return (
+            '<div class="opt-row opt-row--stepper">' +
+            '<span class="opt-row__name">' + escapeHtml(it.name) + '</span>' +
+            '<span class="stepper">' +
+            '<button type="button" data-fixed-dec data-gi="' + gi + '" data-name="' + escapeHtml(it.name) + '"' + (count <= 0 ? ' disabled' : '') + '>−</button>' +
+            '<span>' + count + '</span>' +
+            '<button type="button" data-fixed-inc data-gi="' + gi + '" data-name="' + escapeHtml(it.name) + '"' + (sum >= o.min ? ' disabled' : '') + '>+</button>' +
+            '</span></div>'
+          );
+        }).join('');
+        return (
+          '<div class="opt-group">' +
+          '<p class="opt-group__title">' + escapeHtml(o.name || 'Sabores') + ' — elegí ' + o.min + '</p>' +
+          '<p class="' + hintClass + '">' + hintText + '</p>' +
+          '<div class="opt-list">' + rows + '</div>' +
+          '</div>'
+        );
+      }
+      var rows2 = o.items.map(function (it) {
+        var checked = !!(MODAL.any[gi] && MODAL.any[gi][it.name]);
+        var price = it.price > 0 ? '<span class="opt-row__price">+ ' + fmt(it.price) + '</span>' : '';
+        return (
+          '<label class="opt-row' + (checked ? ' is-checked' : '') + '">' +
+          '<span class="opt-row__name">' + escapeHtml(it.name) + '</span>' +
+          price +
+          '<input type="checkbox" data-any-toggle data-gi="' + gi + '" data-name="' + escapeHtml(it.name) + '"' + (checked ? ' checked' : '') + '>' +
+          '</label>'
+        );
+      }).join('');
+      return (
+        '<div class="opt-group">' +
+        '<p class="opt-group__title">' + escapeHtml(o.name || 'Opciones') + '</p>' +
+        '<div class="opt-list">' + rows2 + '</div>' +
+        '</div>'
+      );
+    }).join('');
+
+    var canAdd = modalFixedOk();
+    var total = MODAL.qty * (p.price + modalExtrasTotal());
+    var msg = canAdd ? '' : '<p class="modal-add-msg">Completá los sabores para poder agregarlo.</p>';
+
+    /* Guardamos el scroll del modal antes de redibujar, porque reemplazar el
+       innerHTML crea un elemento nuevo y el navegador lo arranca en scrollTop 0
+       (eso es lo que hacía "saltar" la pantalla al tildar un topping). */
+    var prevBox = root.querySelector('.modal-box');
+    var prevScroll = prevBox ? prevBox.scrollTop : 0;
+
+    root.innerHTML =
+      '<div class="modal-overlay" id="product-modal-overlay">' +
+      '<div class="modal-box" role="dialog" aria-modal="true" aria-label="Agregar ' + escapeHtml(p.name) + '">' +
+      '<button type="button" class="modal-close" data-modal-close>Cerrar</button>' +
+      modalGalleryHtml(p) +
+      '<h3 class="modal-title">' + escapeHtml(p.name) + '</h3>' +
+      '<p class="modal-price">' + priceHtml(p.price, p.priceDiscount) + '</p>' +
+      '<div class="modal-qty"><span class="modal-qty-label">Cantidad</span>' +
+      '<span class="stepper">' +
+      '<button type="button" data-modal-qty-dec' + (MODAL.qty <= 1 ? ' disabled' : '') + '>−</button>' +
+      '<span>' + MODAL.qty + '</span>' +
+      '<button type="button" data-modal-qty-inc>+</button>' +
+      '</span></div>' +
+      groupsHtml +
+      '<div class="modal-add-wrap">' + msg +
+      '<button type="button" class="btn btn-yellow" data-modal-add' + (canAdd ? '' : ' disabled') + '>Agregar al pedido · ' + fmt(total) + '</button>' +
+      '</div></div></div>';
+
+    var newBox = root.querySelector('.modal-box');
+    if (newBox && prevScroll) newBox.scrollTop = prevScroll;
+  }
+
+  function addModalToCart() {
+    if (!MODAL || !modalFixedOk()) return;
+    var p = MODAL.product;
+    var toppings = [];
+    (p.options || []).forEach(function (o, gi) {
+      if (o.rangeType === 'fixed' && o.qty && o.min) {
+        var picks = MODAL.fixed[gi];
+        for (var name in picks) {
+          if (picks[name] > 0) toppings.push({ name: name, price: 0, qty: picks[name] });
+        }
+      } else {
+        var sel = MODAL.any[gi];
+        o.items.forEach(function (it) {
+          if (sel[it.name]) toppings.push({ name: it.name, price: it.price || 0, qty: 1 });
+        });
+      }
+    });
+    CART.push({
+      id: 'l' + Date.now() + Math.random().toString(36).slice(2, 8),
+      catSlug: MODAL.catSlug, catName: MODAL.catName, group: MODAL.group,
+      name: p.name, unitPrice: p.price, qty: MODAL.qty, toppings: toppings
+    });
+    saveCart();
+    closeProductModal();
+    showToast('Agregado al pedido ✓');
+  }
+
+  var toastTimer = null;
+  function showToast(text) {
+    var el = document.querySelector('.ff-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'ff-toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.hidden = true; }, 1800);
+  }
+
+  /* -------- drawer del carrito + checkout -------- */
+  var DRAWER_VIEW = 'cart'; /* 'cart' | 'checkout' */
+  var CHECKOUT = { tipo: 'retiro', mesa: 'Mesa 1', direccion: '', pago: 'Efectivo', pagoCon: '', nombre: '', telefono: '' };
+  var checkoutZone = null; /* resultado de findZone() sobre CHECKOUT.direccion */
+
+  function deliveryCost() {
+    if (CHECKOUT.tipo !== 'delivery') return 0;
+    if (checkoutZone && checkoutZone !== -1) return ZONES[checkoutZone.i].cost;
+    return 0;
+  }
+
+  function openCart() {
+    DRAWER_VIEW = 'cart';
+    renderDrawer();
+    document.getElementById('cart-drawer-root').hidden = false;
+  }
+
+  function closeCart() {
+    var root = document.getElementById('cart-drawer-root');
+    if (root) { root.hidden = true; }
+  }
+
+  function renderDrawer() {
+    var root = document.getElementById('cart-drawer-root');
+    if (!root) return;
+    root.innerHTML = DRAWER_VIEW === 'checkout' ? drawerCheckoutHtml() : drawerCartHtml();
+  }
+
+  function drawerCartHtml() {
+    var body;
+    if (!CART.length) {
+      body = '<p class="drawer-empty">Todavía no agregaste nada. Elegí algo de la carta.</p>';
+    } else {
+      body = CART.map(function (l) {
+        var sub = l.group ? escapeHtml(l.catName) + ' (' + escapeHtml(l.group) + ')' : escapeHtml(l.catName);
+        var tops = (l.toppings || []).length
+          ? '<ul class="cart-line__tops">' + l.toppings.map(function (t) {
+            return '<li>' + t.qty + 'x ' + escapeHtml(t.name) + (t.price > 0 ? ' (+' + fmt(t.price) + ')' : '') + '</li>';
+          }).join('') + '</ul>'
+          : '';
+        return (
+          '<div class="cart-line" data-line="' + l.id + '">' +
+          '<div class="cart-line__main"><span class="cart-line__name">' + l.qty + 'x ' + escapeHtml(l.name) + '<br><span class="cart-line__sub">' + sub + '</span></span>' +
+          '<span class="cart-line__price">' + fmt(linePrice(l)) + '</span></div>' +
+          tops +
+          '<div class="cart-line__ctrl">' +
+          '<span class="stepper">' +
+          '<button type="button" data-line-dec data-id="' + l.id + '">−</button>' +
+          '<span>' + l.qty + '</span>' +
+          '<button type="button" data-line-inc data-id="' + l.id + '">+</button>' +
+          '</span>' +
+          '<button type="button" class="cart-line__remove" data-line-remove data-id="' + l.id + '">Quitar</button>' +
+          '</div></div>'
+        );
+      }).join('');
+    }
+    var closedNotice = '';
+    if (CART.length && !getStatus().open) {
+      closedNotice = '<p class="drawer-closed-notice">Ahora estamos cerrados — igual podés armar el pedido, lo confirmamos por WhatsApp apenas abramos.</p>';
+    }
+    return (
+      '<div class="drawer-overlay" id="cart-drawer-overlay">' +
+      '<div class="drawer-panel" role="dialog" aria-modal="true" aria-label="Tu pedido">' +
+      '<div class="drawer-head"><h3>Tu pedido</h3><button type="button" class="drawer-close" data-cart-close>Cerrar</button></div>' +
+      (CART.length ? '<button type="button" class="drawer-clear" data-cart-clear>Vaciar carrito</button>' : '') +
+      closedNotice +
+      '<div class="drawer-body">' + body + '</div>' +
+      '<div class="drawer-foot">' +
+      '<div class="drawer-total"><span>Total</span><span>' + fmt(cartSubtotal()) + '</span></div>' +
+      '<button type="button" class="btn btn-yellow" data-go-checkout' + (CART.length ? '' : ' disabled') + '>Continuar</button>' +
+      '</div></div></div>'
+    );
+  }
+
+  function drawerCheckoutHtml() {
+    var sub = cartSubtotal();
+    var total = sub + deliveryCost();
+    var tipo = CHECKOUT.tipo;
+    var avail = availableOrderTypes();
+
+    if (!avail.length) {
+      return (
+        '<div class="drawer-overlay" id="cart-drawer-overlay">' +
+        '<div class="drawer-panel" role="dialog" aria-modal="true" aria-label="Terminar pedido">' +
+        '<div class="drawer-head"><h3>Terminar pedido</h3><button type="button" class="drawer-close" data-cart-close>Cerrar</button></div>' +
+        '<p class="drawer-empty">Por ahora no estamos tomando pedidos por la web (delivery, retiro y consumo en el local están apagados). Escribinos por WhatsApp y vemos cómo te ayudamos.</p>' +
+        '<button type="button" class="checkout-back" data-cart-back>← Volver al carrito</button>' +
+        '</div></div>'
+      );
+    }
+
+    var labels = { delivery: 'Delivery', retiro: 'Retiro en el local', local: 'Consumo en el local' };
+    var radios = avail.map(function (t) { return radioRow(t, labels[t], tipo); }).join('');
+
+    var mesaOptions = '';
+    for (var m = 1; m <= 12; m++) {
+      mesaOptions += '<option value="Mesa ' + m + '"' + (CHECKOUT.mesa === 'Mesa ' + m ? ' selected' : '') + '>Mesa ' + m + '</option>';
+    }
+
+    var conditional = '';
+    if (tipo === 'delivery') {
+      var zoneHint = '';
+      if (CHECKOUT.direccion) {
+        if (checkoutZone && checkoutZone !== -1) {
+          zoneHint = '<p class="zone-hint ok">Llegamos · envío ' + fmt(ZONES[checkoutZone.i].cost) + '</p>';
+        } else if (checkoutZone === -1) {
+          zoneHint = '<p class="zone-hint no">No reconocemos esa zona todavía, coordinamos el envío por WhatsApp.</p>';
+        }
+      }
+      conditional =
+        '<label class="field">Dirección (calle, altura y barrio)' +
+        '<input id="co-direccion" list="co-barrios-list" value="' + escapeHtml(CHECKOUT.direccion) + '" placeholder="Ej: Rivera Indarte 123, Cofico">' +
+        '</label>' + zoneHint;
+    } else if (tipo === 'local') {
+      conditional =
+        '<label class="field">Mesa<select id="co-mesa">' + mesaOptions + '</select></label>';
+    }
+
+    var pagoConWrap = CHECKOUT.pago === 'Efectivo'
+      ? '<label class="field" id="co-pagocon-wrap">¿Con cuánto pagás? (opcional)<input id="co-pagocon" type="number" min="0" inputmode="numeric" value="' + escapeHtml(CHECKOUT.pagoCon) + '"></label>'
+      : '';
+
+    return (
+      '<div class="drawer-overlay" id="cart-drawer-overlay">' +
+      '<div class="drawer-panel" role="dialog" aria-modal="true" aria-label="Terminar pedido">' +
+      '<div class="drawer-head"><h3>Terminar pedido</h3><button type="button" class="drawer-close" data-cart-close>Cerrar</button></div>' +
+      (getStatus().open ? '' : '<p class="drawer-closed-notice">Ahora estamos cerrados — igual podés mandar el pedido, lo confirmamos por WhatsApp apenas abramos.</p>') +
+      '<form class="checkout-form" id="checkout-form">' +
+      '<button type="button" class="checkout-back" data-cart-back>← Volver al carrito</button>' +
+      '<div class="radio-group">' + radios + '</div>' +
+      conditional +
+      '<label class="field">Tu nombre<input id="co-nombre" value="' + escapeHtml(CHECKOUT.nombre) + '" autocomplete="name"></label>' +
+      '<label class="field">Teléfono<input id="co-telefono" value="' + escapeHtml(CHECKOUT.telefono) + '" autocomplete="tel"></label>' +
+      '<p class="field-error" id="co-err" hidden>Completá nombre y teléfono' + (tipo === 'delivery' ? ' y la dirección' : '') + '.</p>' +
+      '<label class="field">Forma de pago<select id="co-pago">' +
+      ['Efectivo', 'Transferencia', 'Mercado Pago'].map(function (o) { return '<option' + (CHECKOUT.pago === o ? ' selected' : '') + '>' + o + '</option>'; }).join('') +
+      '</select></label>' +
+      pagoConWrap +
+      '<div class="checkout-total"><span>Total</span><span>' + fmt(total) + '</span></div>' +
+      '<button type="submit" class="btn btn-yellow">Confirmar pedido por WhatsApp</button>' +
+      '</form></div></div>'
+    );
+  }
+
+  function radioRow(value, label, current) {
+    return (
+      '<label class="radio-row' + (current === value ? ' is-active' : '') + '">' +
+      '<input type="radio" name="co-tipo" value="' + value + '"' + (current === value ? ' checked' : '') + '>' +
+      escapeHtml(label) + '</label>'
+    );
+  }
+
+  /* Tipos de pedido habilitados según lo que esté prendido en el panel del
+     local (Delivery / Retiro / Consumo en el local). Si el dueño apaga un
+     servicio, no tiene que poder elegirse acá tampoco. */
+  function availableOrderTypes() {
+    var s = ADMIN.services || {};
+    var out = [];
+    if (s.delivery !== false) out.push('delivery');
+    if (s.retiro !== false) out.push('retiro');
+    if (s.local !== false) out.push('local');
+    return out;
+  }
+
+  function goCheckout() {
+    if (!CART.length) return;
+    var avail = availableOrderTypes();
+    if (avail.length && avail.indexOf(CHECKOUT.tipo) === -1) CHECKOUT.tipo = avail[0];
+    DRAWER_VIEW = 'checkout';
+    renderDrawer();
+  }
+
+  /* Construye el mensaje de WhatsApp replicando EXACTO el formato del ticket
+     que imprimía Pedix (dos copias en el local). No reordenar ni "mejorar"
+     el texto: cada línea en blanco es intencional. */
+  function buildOrderMessage(seq, code, fecha, total) {
+    var lines = [];
+    lines.push('¡Hola! Te paso el resumen de mi pedido');
+    lines.push('');
+    lines.push('Pedido: #' + seq + ' / ' + code);
+    lines.push('Tienda: fufafood');
+    lines.push('Fecha: ' + fecha);
+    lines.push('Nombre: ' + CHECKOUT.nombre);
+    lines.push('Teléfono: ' + CHECKOUT.telefono);
+    lines.push('');
+    lines.push('Forma de pago: ' + CHECKOUT.pago);
+    lines.push('Total: ' + fmt(total));
+    if (CHECKOUT.pago === 'Efectivo' && CHECKOUT.pagoCon) {
+      lines.push('Pago con: ' + fmt(+CHECKOUT.pagoCon));
+    }
+    lines.push('');
+    if (CHECKOUT.tipo === 'local') {
+      lines.push('Consumo en local: Mesa ' + CHECKOUT.mesa);
+    } else if (CHECKOUT.tipo === 'delivery') {
+      lines.push('Delivery a: ' + CHECKOUT.direccion);
+    } else {
+      lines.push('Retira en el local');
+    }
+    lines.push('');
+    lines.push('Mi pedido es');
+    lines.push('');
+
+    var order = [];
+    var map = {};
+    CART.forEach(function (l) {
+      var key = l.catSlug + '|' + l.group;
+      if (!map[key]) { map[key] = { header: l.group ? l.catName + ' (' + l.group + ')' : l.catName, items: [] }; order.push(key); }
+      map[key].items.push(l);
+    });
+    order.forEach(function (key) {
+      var g = map[key];
+      lines.push(g.header);
+      g.items.forEach(function (l) {
+        lines.push(l.qty + 'x ' + l.name + ': ' + fmt(linePrice(l)));
+        if (l.toppings && l.toppings.length) {
+          lines.push('    Topping:');
+          l.toppings.forEach(function (t) {
+            lines.push('    - ' + t.qty + 'x ' + t.name + (t.price > 0 ? ' (+' + fmt(t.price) + ')' : ''));
+          });
+        }
+      });
+      lines.push('');
+    });
+    lines.push('TOTAL: ' + fmt(total));
+    lines.push('');
+    lines.push('Espero tu respuesta para confirmar mi pedido');
+    return lines.join('\n');
+  }
+
+  function confirmOrder(e) {
+    e.preventDefault();
+    var errEl = document.getElementById('co-err');
+    var nombreOk = !!CHECKOUT.nombre.trim();
+    var telOk = !!CHECKOUT.telefono.trim();
+    var dirOk = CHECKOUT.tipo !== 'delivery' || !!CHECKOUT.direccion.trim();
+    if (!nombreOk || !telOk || !dirOk) {
+      if (errEl) errEl.hidden = false;
+      return;
+    }
+    if (errEl) errEl.hidden = true;
+
+    var total = cartSubtotal() + deliveryCost();
+    var seq = nextOrderSeq();
+    var code = randOrderCode();
+    var fecha = argDateStr(new Date());
+    var msg = buildOrderMessage(seq, code, fecha, total);
+
+    window.open(waText(msg), '_blank', 'noopener');
+
+    CART = [];
+    saveCart();
+    checkoutZone = null;
+    CHECKOUT = { tipo: 'retiro', mesa: 'Mesa 1', direccion: '', pago: 'Efectivo', pagoCon: '', nombre: '', telefono: '' };
+    closeCart();
+  }
+
+  /* -------- delegación de eventos: producto, drawer y checkout -------- */
+  document.addEventListener('click', function (e) {
+    var add = e.target.closest('[data-add-product]');
+    if (add) { e.preventDefault(); openProductModal(add.getAttribute('data-cat'), add.getAttribute('data-pid')); return; }
+
+    if (e.target.closest('[data-modal-close]') || e.target.id === 'product-modal-overlay') { closeProductModal(); return; }
+    if (e.target.closest('[data-modal-photo-prev]')) { MODAL.photoIndex = (MODAL.photoIndex || 0) - 1; renderModal(); return; }
+    if (e.target.closest('[data-modal-photo-next]')) { MODAL.photoIndex = (MODAL.photoIndex || 0) + 1; renderModal(); return; }
+    var photoDot = e.target.closest('[data-modal-photo-dot]');
+    if (photoDot) { MODAL.photoIndex = +photoDot.getAttribute('data-modal-photo-dot'); renderModal(); return; }
+    if (e.target.closest('[data-modal-qty-inc]')) { MODAL.qty++; renderModal(); return; }
+    if (e.target.closest('[data-modal-qty-dec]')) { if (MODAL.qty > 1) MODAL.qty--; renderModal(); return; }
+    var fInc = e.target.closest('[data-fixed-inc]');
+    if (fInc) {
+      var gi1 = fInc.getAttribute('data-gi'), name1 = fInc.getAttribute('data-name');
+      var sum1 = 0; for (var k1 in MODAL.fixed[gi1]) sum1 += MODAL.fixed[gi1][k1];
+      var min1 = MODAL.product.options[gi1].min;
+      if (sum1 < min1) MODAL.fixed[gi1][name1] = (MODAL.fixed[gi1][name1] || 0) + 1;
+      renderModal(); return;
+    }
+    var fDec = e.target.closest('[data-fixed-dec]');
+    if (fDec) {
+      var gi2 = fDec.getAttribute('data-gi'), name2 = fDec.getAttribute('data-name');
+      if (MODAL.fixed[gi2][name2] > 0) MODAL.fixed[gi2][name2]--;
+      renderModal(); return;
+    }
+    if (e.target.closest('[data-modal-add]')) { addModalToCart(); return; }
+
+    if (e.target.closest('[data-cart-close]') || e.target.id === 'cart-drawer-overlay') { closeCart(); return; }
+    if (e.target.closest('[data-cart-clear]')) {
+      if (CART.length && window.confirm('¿Vaciar todo el pedido?')) { CART = []; saveCart(); renderDrawer(); }
+      return;
+    }
+    if (e.target.closest('[data-go-checkout]')) { goCheckout(); return; }
+    if (e.target.closest('[data-cart-back]')) { DRAWER_VIEW = 'cart'; renderDrawer(); return; }
+    var lineInc = e.target.closest('[data-line-inc]');
+    if (lineInc) {
+      var l1 = CART.filter(function (x) { return x.id === lineInc.getAttribute('data-id'); })[0];
+      if (l1) { l1.qty++; saveCart(); renderDrawer(); }
+      return;
+    }
+    var lineDec = e.target.closest('[data-line-dec]');
+    if (lineDec) {
+      var l2 = CART.filter(function (x) { return x.id === lineDec.getAttribute('data-id'); })[0];
+      if (l2 && l2.qty > 1) { l2.qty--; saveCart(); renderDrawer(); }
+      return;
+    }
+    var lineRm = e.target.closest('[data-line-remove]');
+    if (lineRm) {
+      CART = CART.filter(function (x) { return x.id !== lineRm.getAttribute('data-id'); });
+      saveCart(); renderDrawer();
+      return;
+    }
+  });
+
+  document.addEventListener('change', function (e) {
+    if (e.target.closest('[data-any-toggle]')) {
+      var t = e.target, gi = t.getAttribute('data-gi'), name = t.getAttribute('data-name');
+      MODAL.any[gi][name] = t.checked;
+      renderModal();
+      return;
+    }
+    if (e.target.name === 'co-tipo') {
+      CHECKOUT.tipo = e.target.value;
+      renderDrawer();
+      return;
+    }
+    if (e.target.id === 'co-direccion') {
+      CHECKOUT.direccion = e.target.value;
+      checkoutZone = findZone(e.target.value);
+      renderDrawer();
+      return;
+    }
+    if (e.target.id === 'co-mesa') { CHECKOUT.mesa = e.target.value; return; }
+    if (e.target.id === 'co-pago') { CHECKOUT.pago = e.target.value; renderDrawer(); return; }
+    if (e.target.id === 'co-pagocon') { CHECKOUT.pagoCon = e.target.value; return; }
+    if (e.target.id === 'co-nombre') { CHECKOUT.nombre = e.target.value; return; }
+    if (e.target.id === 'co-telefono') { CHECKOUT.telefono = e.target.value; return; }
+  });
+
+  document.addEventListener('input', function (e) {
+    if (e.target.id === 'co-nombre') CHECKOUT.nombre = e.target.value;
+    if (e.target.id === 'co-telefono') CHECKOUT.telefono = e.target.value;
+    if (e.target.id === 'co-pagocon') CHECKOUT.pagoCon = e.target.value;
+    if (e.target.id === 'co-direccion') {
+      CHECKOUT.direccion = e.target.value;
+      checkoutZone = findZone(e.target.value);
+    }
+  });
+
+  document.addEventListener('submit', function (e) {
+    if (e.target && e.target.id === 'checkout-form') confirmOrder(e);
+  });
+
+  /* ===================== fin CARRITO ===================== */
+
+  /* Aplica los overrides guardados por el panel (admin.js) sobre el catálogo
+     recién cargado de data-carta.json, ANTES de que se renderice nada.
+     Si no hay overrides (ADMIN vacío) devuelve los datos sin tocar. */
+  function applyAdminOverrides(data) {
+    var catOn = ADMIN.catOn || {};
+    var overrides = ADMIN.productOverrides || {};
+    var customProducts = ADMIN.customProducts || {};
+    var out = data.filter(function (c) { return catOn[c.slug] !== false; });
+    out = out.map(function (c) {
+      var products = c.products.slice();
+      if (customProducts[c.slug] && customProducts[c.slug].length) {
+        products = products.concat(customProducts[c.slug]);
+      }
+      products = products.map(function (p) {
+        var ov = overrides[p.id];
+        if (!ov) return p;
+        if (ov.deleted) return null;
+        var np = {};
+        for (var k in p) np[k] = p[k];
+        if (typeof ov.price === 'number') np.price = ov.price;
+        if (typeof ov.name === 'string' && ov.name) np.name = ov.name;
+        if (typeof ov.desc === 'string') np.desc = ov.desc;
+        var photos = (ov.photos && ov.photos.length) ? ov.photos : (ov.photo ? [ov.photo] : null);
+        if (photos && photos.length) { np.thumb = photos[0]; np.image = photos[0]; np.photos = photos; }
+        if (ov.on === false) np.soldOut = true;
+        return np;
+      }).filter(Boolean);
+      var catPhoto = ADMIN.photos && ADMIN.photos['cat-' + c.slug];
+      var cc = {};
+      for (var k2 in c) cc[k2] = c[k2];
+      cc.products = products;
+      if (catPhoto) cc.thumb = catPhoto;
+      return cc;
+    });
+    return out;
+  }
+
+  /* Producto tachado + etiqueta "Agotado" cuando el panel lo marcó como no disponible. */
+  function soldOutWrap(p, innerHtml) {
+    if (!p.soldOut) return innerHtml;
+    return '<li style="opacity:.5">' + innerHtml.replace(/^<li>/, '').replace(/<\/li>$/, '') +
+      ' <span style="display:inline-block;background:#E63B2E;color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;margin-left:6px">Agotado</span></li>';
+  }
+
+  function isDesk() { return window.innerWidth >= 1024; }
+  function navPx() { return isDesk() ? 64 : 56; }
+
+  /* ===================== status ===================== */
+  function getStatus() {
+    /* Estado forzado desde el panel (feriados, etc.), ignora el horario. */
+    if (ADMIN.estado === 'abierto') return { open: true, text: 'Abierto hasta las 00:00', nav: 'Abierto' };
+    if (ADMIN.estado === 'cerrado') return { open: false, text: 'Cerrado', nav: 'Cerrado' };
+    var d = new Date(), day = d.getDay(), h = d.getHours();
+    var open = !!HOURS[day] && h >= HOURS[day][0] && h < HOURS[day][1];
+    if (open) return { open: true, text: 'Abierto hasta las 00:00', nav: 'Abierto' };
+    var next = '';
+    if (!(HOURS[day] && h < 19)) {
+      for (var i = 1; i <= 7; i++) {
+        var nd = (day + i) % 7;
+        if (HOURS[nd]) { next = i === 1 ? 'mañana ' : 'el ' + DAYS[nd] + ' '; break; }
+      }
+    }
+    return { open: false, text: 'Cerrado, abrimos ' + next + 'a las 19:00', nav: 'Cerrado' };
+  }
+
+  function renderStatus() {
+    var st = getStatus();
+    var color = st.open ? '#2DB84C' : '#E63B2E';
+    document.querySelectorAll('.status-dot').forEach(function (el) { el.style.background = color; });
+    var full = document.getElementById('status-text-full');
+    var short = document.getElementById('status-text-short');
+    var hero = document.getElementById('status-text-hero');
+    var menu = document.getElementById('mobile-menu-status');
+    if (full) full.textContent = st.text;
+    if (short) short.textContent = st.nav;
+    if (hero) hero.textContent = st.text;
+    if (menu) menu.innerHTML = escapeHtml(st.text) + '<br>Fragueiro esq. Francisco de Quevedo, Alta Córdoba';
+  }
+
+  /* ===================== promo del día (martes/miércoles/jueves) ===================== */
+  var PROMOS = {
+    2: { tag: 'Promo martes', title: 'Martes de pizzas.', desc: '2 unidades con 10% off, 3 unidades con 15% off. Mozzarella, fugazza, napolitana o provenzal.' },
+    3: { tag: 'Promo miércoles', title: 'Miércoles de hamburguesas.', desc: 'Pedí 2 (simple, doble o triple) y tenés 10% off.' },
+    4: { tag: 'Promo jueves', title: '[Completá acá la promo de jueves]', desc: '[Completá acá la descripción y el precio de la promo de jueves]' }
+  };
+
+  function renderHeroPromo() {
+    var promo = PROMOS[new Date().getDay()];
+    var section = document.getElementById('hero-section');
+    var tag = document.getElementById('hero-promo-tag');
+    var title = document.getElementById('hero-title');
+    var desc = document.getElementById('hero-desc');
+    var ctaCarta = document.getElementById('hero-cta-carta');
+    if (!promo) {
+      if (section) section.classList.remove('hero-tipo--promo');
+      if (tag) tag.hidden = true;
+      return;
+    }
+    if (section) section.classList.add('hero-tipo--promo');
+    if (tag) { tag.hidden = false; tag.textContent = promo.tag; }
+    if (title) title.textContent = promo.title;
+    if (desc) desc.textContent = promo.desc;
+    if (ctaCarta) ctaCarta.textContent = 'Ver la promo';
+  }
+
+  /* ===================== render: home categories grid ===================== */
+  function renderHomeCatGrid() {
+    var el = document.getElementById('home-cat-grid');
+    if (!CARTA_DATA) { el.innerHTML = '<li class="carta-loading">Cargando la carta…</li>'; return; }
+    el.innerHTML = CARTA_DATA.map(function (c, i) {
+      var min = catMin(c);
+      var from = min !== null ? 'desde ' + fmt(min) : '';
+      var meta = CAT_META[c.slug] || {};
+      var delay = String((i % 3) * 70);
+      var badge = meta.soloLocal ? '<span class="cat-card__badge">Solo en el local</span>' : '';
+      return (
+        '<li data-reveal="' + delay + '">' +
+        '<a href="#/carta" class="cat-card" data-go-cat="' + c.slug + '">' +
+        '<div class="cat-card__photo photo-wrap" style="aspect-ratio:4/3">' + productImg(c.thumb, c.name, '4/3', c.name) + badge + '</div>' +
+        '<div class="cat-card__row"><h3 class="cat-card__name">' + escapeHtml(c.name) + '</h3><span class="cat-card__from">' + escapeHtml(from) + '</span></div>' +
+        '<p class="cat-card__examples">' + escapeHtml(meta.examples || '') + '</p>' +
+        '</a></li>'
+      );
+    }).join('');
+  }
+
+  /* ===================== render: home top products ===================== */
+  function renderHomeTop() {
+    var el = document.getElementById('home-top-grid');
+    if (!CARTA_DATA) { el.innerHTML = '<p class="carta-loading">Cargando la carta…</p>'; return; }
+    var picks = TOP_PICKS.map(function (pick) {
+      var p = findProduct(pick.cat, pick.name);
+      return p ? { cat: pick.cat, p: p } : null;
+    }).filter(Boolean);
+    el.innerHTML = picks.map(function (pick, i) {
+      var p = pick.p;
+      return (
+        '<article class="top-pick" data-reveal="' + String(i * 70) + '">' +
+        '<a href="#/carta" class="top-card" data-go-cat="' + escapeHtml(pick.cat) + '">' +
+        '<div class="top-card__photo photo-wrap" style="aspect-ratio:4/5">' + productImg(p.thumb, p.name, '4/5', p.name) + '</div>' +
+        '<div class="top-card__row"><h3 class="top-card__name">' + escapeHtml(p.name) + '</h3><span class="top-card__price">' + priceHtml(p.price, p.priceDiscount) + '</span></div>' +
+        '<p class="top-card__desc">' + escapeHtml(p.desc || '') + '</p>' +
+        '</a>' +
+        '<button type="button" class="btn-add btn-add--top" data-add-product data-cat="' + escapeHtml(pick.cat) + '" data-pid="' + escapeHtml(p.id) + '"' + (p.soldOut ? ' disabled' : '') + '>Agregar al pedido</button>' +
+        '</article>'
+      );
+    }).join('');
+  }
+
+  /* ===================== render: carta ===================== */
+  var activeCat = null;
+
+  function renderCartaChips() {
+    var el = document.getElementById('carta-chip-list');
+    if (!CARTA_DATA) { el.innerHTML = '<span class="carta-loading">Cargando la carta…</span>'; return; }
+    if (!activeCat) activeCat = CARTA_DATA[0].slug;
+    el.innerHTML = CARTA_DATA.map(function (c) {
+      return '<button type="button" class="chip" data-go-cat="' + c.slug + '">' + escapeHtml(c.name) + '</button>';
+    }).join('');
+    updateChipActive();
+    el.querySelectorAll('[data-go-cat]').forEach(function (btn) {
+      btn.addEventListener('click', function () { goCat(btn.getAttribute('data-go-cat')); });
+    });
+  }
+
+  function updateChipActive() {
+    document.querySelectorAll('#carta-chip-list .chip').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.getAttribute('data-go-cat') === activeCat);
+    });
+  }
+
+  function renderCartaTop() {
+    var el = document.getElementById('carta-top-list');
+    var photo = document.querySelector('.carta-top-box__photo');
+    if (!CARTA_DATA) { el.innerHTML = '<li class="carta-loading">Cargando la carta…</li>'; return; }
+    var picks = TOP_PICKS.map(function (pick) { return findProduct(pick.cat, pick.name); }).filter(Boolean);
+    el.innerHTML = picks.map(function (p) {
+      return '<li><span>' + escapeHtml(p.name) + '</span><span>' + priceHtml(p.price, p.priceDiscount) + '</span></li>';
+    }).join('');
+    if (photo) {
+      var first = picks[0];
+      photo.style.aspectRatio = '4/3';
+      photo.innerHTML = first ? productImg(first.thumb, first.name, '4/3', first.name) : fotoFufa('Big Fufa', '4/3');
+    }
+  }
+
+  function renderCartaCategories() {
+    var el = document.getElementById('carta-categories');
+    if (!CARTA_DATA) { el.innerHTML = '<p class="carta-loading">Cargando la carta…</p>'; return; }
+    el.innerHTML = CARTA_DATA.map(function (c) {
+      var meta = CAT_META[c.slug] || {};
+      var badge = meta.soloLocal ? '<p class="cat-section__badge">Solo en el local</p>' : '';
+
+      /* Agrupamos por el campo "group" del producto (puede ser ""). */
+      var groupOrder = [];
+      var groupMap = {};
+      c.products.forEach(function (p) {
+        var key = p.group || '';
+        if (!groupMap[key]) { groupMap[key] = []; groupOrder.push(key); }
+        groupMap[key].push(p);
+      });
+
+      var body = groupOrder.map(function (key) {
+        var title = key ? '<h3 class="cat-group__title">' + escapeHtml(key) + '</h3>' : '';
+        var items = groupMap[key].map(function (p) {
+          var desc = p.desc ? '<div class="cat-items__desc">' + escapeHtml(p.desc) + '</div>' : '';
+          var li = (
+            '<li>' +
+            '<div class="cat-items__thumb photo-wrap">' + productImg(p.thumb, p.name, '1/1', p.name) + '</div>' +
+            '<div class="cat-items__main">' +
+            '<div class="cat-items__toprow"><div class="cat-items__name">' + escapeHtml(p.name) + '</div>' +
+            '<span class="cat-items__price">' + priceHtml(p.price, p.priceDiscount) + '</span></div>' +
+            desc +
+            '<div class="cat-items__add">' +
+            '<button type="button" class="btn-add" data-add-product data-cat="' + escapeHtml(c.slug) + '" data-pid="' + escapeHtml(p.id) + '"' + (p.soldOut ? ' disabled' : '') + '>Agregar al pedido</button>' +
+            '</div>' +
+            '</div></li>'
+          );
+          return soldOutWrap(p, li);
+        }).join('');
+        return '<div class="cat-group">' + title + '<ul class="cat-items">' + items + '</ul></div>';
+      }).join('');
+
+      return (
+        '<section id="cat-' + c.slug + '" class="cat-section">' +
+        '<div class="cat-section__head">' +
+        '<h2 class="h3 h3--big" data-reveal="0">' + escapeHtml(c.name) + '</h2>' +
+        '<p class="cat-section__line" data-reveal="60">' + escapeHtml(meta.line1 || '') + '</p>' +
+        badge +
+        '</div>' +
+        '<div data-reveal="80" style="min-width:0">' + body + '</div>' +
+        '</section>'
+      );
+    }).join('');
+  }
+
+  function goCat(id) {
+    activeCat = id;
+    updateChipActive();
+    var el = document.getElementById('cat-' + id);
+    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - navPx() - 56, behavior: 'smooth' });
+  }
+
+  var pendingCat = null;
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-go-cat]');
+    if (t && t.tagName === 'A') {
+      pendingCat = t.getAttribute('data-go-cat');
+    }
+  });
+
+  function spy() {
+    if (currentPage !== 'carta' || !CARTA_DATA) return;
+    var cur = CARTA_DATA[0].slug;
+    CARTA_DATA.forEach(function (c) {
+      var el = document.getElementById('cat-' + c.slug);
+      if (el && el.getBoundingClientRect().top < 180) cur = c.slug;
+    });
+    if (cur !== activeCat) { activeCat = cur; updateChipActive(); }
+  }
+
+  /* ===================== render: delivery ===================== */
+  var currentZone = null; // null = no query yet, -1 = not found, {i,b} = found
+
+  function renderZonesList() {
+    var el = document.getElementById('zones-list');
+    el.innerHTML = ZONES.map(function (z, i) {
+      var barrios = z.barrios.map(function (b) {
+        var active = currentZone && currentZone !== -1 && currentZone.b === b ? ' is-active' : '';
+        return '<button type="button" class="barrio-btn' + active + '" data-pick-zone="' + i + '" data-pick-barrio="' + escapeHtml(b) + '">' + escapeHtml(b) + '</button>';
+      }).join('');
+      return (
+        '<div class="zone-block">' +
+        '<div class="zone-block__head"><h3 class="zone-block__name">' + escapeHtml(z.name) + '</h3>' +
+        '<span><strong>Envío ' + fmt(z.cost) + '</strong> · ' + escapeHtml(z.km) + ' · ' + escapeHtml(z.time) + '</span></div>' +
+        '<div class="zone-block__barrios">' + barrios + '</div>' +
+        '</div>'
+      );
+    }).join('');
+    el.querySelectorAll('[data-pick-zone]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var i = +btn.getAttribute('data-pick-zone');
+        var b = btn.getAttribute('data-pick-barrio');
+        currentZone = { i: i, b: b };
+        document.getElementById('barrio-input').value = b;
+        renderZonesList();
+        renderZoneResult();
+      });
+    });
+  }
+
+  function renderBarriosDatalist() {
+    var dl = document.getElementById('barrios-list');
+    var all = ZONES.reduce(function (acc, z) { return acc.concat(z.barrios); }, []);
+    dl.innerHTML = all.map(function (b) { return '<option value="' + escapeHtml(b) + '"></option>'; }).join('');
+  }
+
+  function findZone(q) {
+    var n = norm(q);
+    if (!n) return null;
+    for (var i = 0; i < ZONES.length; i++) {
+      for (var j = 0; j < ZONES[i].barrios.length; j++) {
+        var b = ZONES[i].barrios[j];
+        var nb = norm(b);
+        if (nb === n || (n.length >= 4 && (nb.indexOf(n) !== -1 || n.indexOf(nb) !== -1))) return { i: i, b: b };
+      }
+    }
+    return -1;
+  }
+
+  function renderZoneResult() {
+    var el = document.getElementById('zone-result');
+    if (!currentZone) { el.innerHTML = ''; return; }
+    if (currentZone === -1) {
+      el.innerHTML = '<div class="zone-result zone-result--no"><strong>Todavía no llegamos a tu zona.</strong> Todavía no llegamos hasta tu casa, pero te esperamos en el local. También podés retirar tu pedido en Fragueiro y Quevedo.</div>';
+      return;
+    }
+    var z = ZONES[currentZone.i];
+    var line = currentZone.b + ': envío ' + fmt(z.cost) + ' · ' + z.time;
+    el.innerHTML =
+      '<div class="zone-result zone-result--yes">' +
+      '<span class="ok"><span class="ok-dot"></span>Sí, llegamos</span>' +
+      '<span>' + escapeHtml(line) + '</span>' +
+      '<a href="#/carta">Armá tu pedido</a>' +
+      '</div>';
+  }
+
+  function checkZone(e) {
+    if (e) e.preventDefault();
+    var q = document.getElementById('barrio-input').value;
+    currentZone = findZone(q);
+    renderZonesList();
+    renderZoneResult();
+  }
+
+  /* ===================== event form ===================== */
+  function initEventForm() {
+    var form = document.getElementById('event-form');
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var nombre = document.getElementById('ev-nombre').value.trim();
+      var fecha = document.getElementById('ev-fecha').value;
+      var personas = document.getElementById('ev-personas').value;
+      var tipo = document.getElementById('ev-tipo').value;
+      var capacidad = ADMIN.capacidad || 40;
+      var errNombre = !nombre;
+      var errFecha = !fecha || !(+personas > 0);
+      var errCapacidad = !errFecha && +personas > capacidad;
+      document.getElementById('err-nombre').hidden = !errNombre;
+      document.getElementById('err-fecha').hidden = !errFecha;
+      var errCapEl = document.getElementById('err-capacidad');
+      errCapEl.textContent = 'El local entra hasta ' + capacidad + ' personas. Para un grupo más grande, escribinos directo por WhatsApp.';
+      errCapEl.hidden = !errCapacidad;
+      if (errNombre || errFecha || errCapacidad) return;
+      var f = fecha.split('-').reverse().join('/');
+      var msg = 'Hola Fufa! Soy ' + nombre + '. Quiero alquilar el local para un ' + tipo.toLowerCase() + ' el ' + f + ', somos ' + personas + '. ¿Tienen la fecha libre?';
+      window.open(waText(msg), '_blank', 'noopener');
+    });
+  }
+
+  /* ===================== reveal on scroll ===================== */
+  var io = null;
+  function initObserver() {
+    if (!('IntersectionObserver' in window)) return;
+    io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        var el = entry.target, d = +el.getAttribute('data-reveal') || 0;
+        el.style.transition = 'opacity 500ms ease ' + d + 'ms, transform 500ms ease ' + d + 'ms';
+        el.style.opacity = '1'; el.style.transform = 'none';
+        io.unobserve(el);
+      });
+    }, { threshold: 0.12 });
+  }
+
+  function reveal() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    document.querySelectorAll('[data-reveal]:not([data-rv])').forEach(function (el) {
+      el.setAttribute('data-rv', '1');
+      if (el.getBoundingClientRect().top < window.innerHeight * 0.95) return;
+      el.style.opacity = '0'; el.style.transform = 'translateY(16px)';
+      if (io) io.observe(el);
+    });
+  }
+
+  /* ===================== mobile menu ===================== */
+  function openMenu() {
+    document.getElementById('mobile-menu').hidden = false;
+  }
+  function closeMenu() {
+    document.getElementById('mobile-menu').hidden = true;
+  }
+
+  /* ===================== router ===================== */
+  var currentPage = 'home';
+
+  function showPage(page) {
+    currentPage = page;
+    ['home', 'carta', 'delivery', 'legal'].forEach(function (p) {
+      document.getElementById('view-' + p).hidden = p !== page;
+    });
+    document.querySelectorAll('[data-nav]').forEach(function (a) {
+      a.classList.toggle('is-active', a.getAttribute('data-nav') === page);
+    });
+    setTimeout(reveal, 60);
+  }
+
+  function route(first) {
+    /* location.hash solo reconoce el primer "#" como separador: un link como
+       "#/legal#cookies" llega acá entero como "legal#cookies", por eso
+       partimos a mano la sub-anchor en vez de confiar en otro location.hash. */
+    var h = (location.hash || '').replace(/^#\/?/, '');
+    var sub = null;
+    if (h.indexOf('#') !== -1) { var parts = h.split('#'); h = parts[0]; sub = parts[1]; }
+    var page = h === 'carta' ? 'carta' : h === 'delivery' ? 'delivery' : h === 'legal' ? 'legal' : 'home';
+    showPage(page);
+    closeMenu();
+    setTimeout(function () {
+      if (page === 'legal' && sub) {
+        var elL = document.getElementById(sub);
+        if (elL) window.scrollTo({ top: elL.getBoundingClientRect().top + window.scrollY - navPx(), behavior: first ? 'auto' : 'smooth' });
+      } else if (h === 'local' || h === 'eventos') {
+        var el = document.getElementById(h);
+        if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - navPx(), behavior: first ? 'auto' : 'smooth' });
+      } else if (page === 'carta' && pendingCat) {
+        var id = pendingCat; pendingCat = null;
+        activeCat = id; updateChipActive();
+        var el2 = document.getElementById('cat-' + id);
+        if (el2) window.scrollTo({ top: el2.getBoundingClientRect().top + window.scrollY - navPx() - 56, behavior: 'auto' });
+      } else if (!first) {
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      }
+    }, 60);
+  }
+
+  /* ===================== aplicar el panel del local a la web (en vivo) =====================
+     Cada una de estas funciones es idempotente: se puede llamar las veces que
+     haga falta (al cargar, y de nuevo cada vez que el panel cambia algo en
+     OTRA pestaña) y siempre deja la web al día con el estado actual del panel,
+     revirtiendo lo que ya no aplica (ej. si vuelven a prender el delivery). */
+
+  function applyWaLinks() {
+    ['wa-float', 'wa-link-local', 'wa-link-footer', 'wa-link-mobilebar', 'legal-wa-link'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.href = waDefault;
+    });
+    var telLink = document.getElementById('tel-link-footer');
+    if (telLink) telLink.href = 'tel:+' + WA;
+    /* Por si queda algún link viejo apuntando a Pedix dando vueltas. */
+    document.querySelectorAll('a[href="https://pedix.app/fufafood"]').forEach(function (a) { a.href = waOrder; });
+  }
+
+  function applyHeroDeliveryFrom() {
+    var el = document.getElementById('hero-delivery-from');
+    if (!el) return;
+    if (ZONES.length) {
+      var minCost = ZONES.reduce(function (m, z) { return Math.min(m, z.cost); }, ZONES[0].cost);
+      el.textContent = 'envío desde ' + fmt(minCost);
+    } else {
+      el.textContent = 'consultá el envío';
+    }
+  }
+
+  function applyServicesVisibility() {
+    var services = ADMIN.services || {};
+    var localSec = document.getElementById('local');
+    if (localSec) localSec.hidden = (services.local === false);
+    var eventosSec = document.getElementById('eventos');
+    if (eventosSec) eventosSec.hidden = (services.eventos === false);
+    var retiroRow = document.getElementById('cond-retiro-row');
+    if (retiroRow) retiroRow.hidden = (services.retiro === false);
+
+    var zf = document.getElementById('zone-form');
+    var zl = document.getElementById('zones-list');
+    var zr = document.getElementById('zone-result');
+    if (services.delivery === false) {
+      if (zf) zf.hidden = true;
+      if (zl) zl.innerHTML = '<p class="zone-result zone-result--no">Hoy no estamos haciendo envíos. Podés retirar tu pedido en el local.</p>';
+      if (zr) zr.innerHTML = '';
+    } else {
+      if (zf) zf.hidden = false;
+      renderBarriosDatalist();
+      renderZonesList();
+      renderZoneResult();
+    }
+  }
+
+  function applyReceivingState() {
+    var off = ADMIN.receiving === false;
+    var notice = document.getElementById('receiving-notice');
+    if (notice) notice.hidden = !off;
+    document.querySelectorAll('#hero-cta-pedi, .btn-pedi-header, .mobile-bar__btn--yellow').forEach(function (btn) {
+      if (btn.dataset.origHtml === undefined) btn.dataset.origHtml = btn.innerHTML;
+      if (off) {
+        btn.innerHTML = 'No disponible';
+        btn.style.opacity = '.5';
+        btn.style.pointerEvents = 'none';
+      } else {
+        btn.innerHTML = btn.dataset.origHtml;
+        btn.style.opacity = '';
+        btn.style.pointerEvents = '';
+      }
+    });
+    updateCartBadges();
+  }
+
+  function applySectionPhotos() {
+    var photos = ADMIN.photos || {};
+    [['photo-local', photos.local, 'el salón de noche'],
+     ['photo-delivery', photos.delivery, 'pedido listo para salir'],
+     ['photo-eventos', photos.eventos, 'un cumple en el local']].forEach(function (t) {
+      var el = document.getElementById(t[0]);
+      if (!el) return;
+      var ratio = el.getAttribute('data-photo-ratio') || '4/3';
+      el.innerHTML = t[1] ? productImg(t[1], t[2], ratio, t[2]) : fotoFufa(t[2], ratio);
+    });
+  }
+
+  var RAW_CARTA_DATA = null;
+  function refreshCarta() {
+    if (!RAW_CARTA_DATA) return;
+    CARTA_DATA = applyAdminOverrides(RAW_CARTA_DATA);
+    renderHomeCatGrid();
+    renderHomeTop();
+    renderCartaChips();
+    renderCartaTop();
+    renderCartaCategories();
+  }
+
+  function applyAdminEffects() {
+    applyWaLinks();
+    applyHeroDeliveryFrom();
+    applyServicesVisibility();
+    applyReceivingState();
+    renderStatus();
+    renderHeroPromo();
+    applySectionPhotos();
+    refreshCarta();
+  }
+
+  /* El panel (admin.html) y la web (index.html) son dos pestañas separadas
+     que comparten localStorage. El evento "storage" solo dispara en las
+     pestañas QUE NO escribieron el cambio, así que cuando el panel guarda
+     algo, esta pestaña se entera sola y se actualiza sin que haga falta
+     recargar. */
+  window.addEventListener('storage', function (e) {
+    if (e.key !== ADMIN_KEY) return;
+    ADMIN = loadAdmin();
+    recomputeWa();
+    recomputeZones();
+    recomputeHours();
+    applyAdminEffects();
+  });
+
+  /* ===================== init ===================== */
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-open-cart]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) { e.preventDefault(); openCart(); });
+    });
+    var modalRoot = document.getElementById('product-modal-root');
+    var drawerRoot = document.getElementById('cart-drawer-root');
+    if (modalRoot) modalRoot.hidden = true;
+    if (drawerRoot) drawerRoot.hidden = true;
+
+    renderStaticPhotos();
+    applyAdminEffects();
+    setInterval(renderStatus, 60000);
+
+    fetch('./data-carta.json').then(function (r) { return r.json(); }).then(function (data) {
+      RAW_CARTA_DATA = data;
+      refreshCarta();
+      if (currentPage === 'carta' && pendingCat) {
+        var id = pendingCat; pendingCat = null;
+        activeCat = id; updateChipActive();
+        var el3 = document.getElementById('cat-' + id);
+        if (el3) window.scrollTo({ top: el3.getBoundingClientRect().top + window.scrollY - navPx() - 56, behavior: 'auto' });
+      }
+      setTimeout(reveal, 60);
+    }).catch(function (err) {
+      var msg = '<p class="carta-loading">No pudimos cargar la carta. Probá recargar la página.</p>';
+      ['home-cat-grid', 'home-top-grid', 'carta-chip-list', 'carta-top-list', 'carta-categories'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.innerHTML = msg;
+      });
+      if (window.console) console.error('No se pudo cargar data-carta.json', err);
+    });
+
+    initObserver();
+    initEventForm();
+
+    document.getElementById('menu-open-btn').addEventListener('click', openMenu);
+    document.getElementById('menu-close-btn').addEventListener('click', closeMenu);
+    document.getElementById('zone-form').addEventListener('submit', checkZone);
+    document.getElementById('barrio-input').addEventListener('change', function () { currentZone = null; renderZoneResult(); });
+
+    window.addEventListener('hashchange', function () { route(false); });
+    window.addEventListener('scroll', spy, { passive: true });
+    window.addEventListener('resize', function () {
+      if (isDesk()) closeMenu();
+    });
+
+    route(true);
+    setTimeout(reveal, 300);
+
+    if (!cookiePrefs) setTimeout(showCookieBanner, 500);
+  });
+})();

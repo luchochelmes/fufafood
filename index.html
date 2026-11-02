@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fufa Food — Donde el hambre se rinde.</title>
+<meta name="description" content="Hamburguesas, lomitos, pizzas y empanadas en Alta Córdoba. Comé en el local, pedí delivery o alquilá el espacio para tu evento.">
+
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="favicon.png">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Fufa Food">
+<meta property="og:title" content="Fufa Food — Donde el hambre se rinde.">
+<meta property="og:description" content="Hamburguesas, lomitos, pizzas y empanadas en Alta Córdoba. Comé en el local, pedí delivery o alquilá el espacio para tu evento.">
+<meta property="og:image" content="og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Fufa Food — Donde el hambre se rinde.">
+<meta name="twitter:description" content="Hamburguesas, lomitos, pizzas y empanadas en Alta Córdoba.">
+<meta name="twitter:image" content="og-image.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Work+Sans:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="styles.css?v=20261101j">
+</head>
+<body>
+
+<header id="site-header">
+  <div class="header-inner">
+    <a href="#/" class="logo">FUFA FOOD</a>
+
+    <nav aria-label="Principal" class="nav-desktop">
+      <a href="#/carta" data-nav="carta" class="nav-link">Carta</a>
+      <a href="#/delivery" data-nav="delivery" class="nav-link">Delivery</a>
+      <a href="#/local" class="nav-link nav-link--white">El local</a>
+      <a href="#/eventos" class="nav-link nav-link--white">Eventos</a>
+    </nav>
+
+    <div class="status-badge">
+      <span class="status-dot" id="status-dot"></span>
+      <span class="status-text status-text--full" id="status-text-full"></span>
+      <span class="status-text status-text--short" id="status-text-short"></span>
+    </div>
+
+    <button type="button" data-open-cart class="btn btn-yellow btn-pedi-header">Carrito<span class="cart-badge" data-cart-badge hidden>0</span></button>
+
+    <button type="button" id="menu-open-btn" class="menu-btn" aria-label="Abrir menú">Menú</button>
+  </div>
+</header>
+
+<div id="mobile-menu" role="dialog" aria-label="Menú" aria-modal="true" class="mobile-menu" hidden>
+  <div class="mobile-menu__top">
+    <span class="mobile-menu__logo">FUFA FOOD</span>
+    <button type="button" id="menu-close-btn" class="menu-close-btn">Cerrar</button>
+  </div>
+  <nav aria-label="Menú móvil" class="mobile-menu__nav">
+    <a href="#/" class="mobile-menu__link">INICIO</a>
+    <a href="#/carta" class="mobile-menu__link">CARTA</a>
+    <a href="#/delivery" class="mobile-menu__link">DELIVERY</a>
+    <a href="#/local" class="mobile-menu__link">EL LOCAL</a>
+    <a href="#/eventos" class="mobile-menu__link">EVENTOS</a>
+  </nav>
+  <div class="mobile-menu__social">
+    <a href="https://instagram.com/fufa.food" target="_blank" rel="noopener">Instagram</a>
+    <a href="https://tiktok.com/@fufafood" target="_blank" rel="noopener">TikTok</a>
+  </div>
+  <p class="mobile-menu__foot" id="mobile-menu-status">
+    <br>Fragueiro esq. Francisco de Quevedo, Alta Córdoba
+  </p>
+</div>
+
+<div class="nav-spacer"></div>
+
+<!-- ============ HOME ============ -->
+<main id="view-home" class="view">
+
+  <div id="receiving-notice" class="receiving-notice" role="status" hidden>Ahora no estamos tomando pedidos.</div>
+
+  <section class="hero-tipo" id="hero-section">
+    <div class="wrap hero-tipo__inner">
+      <p class="promo-tag" id="hero-promo-tag" hidden>Promo de hoy</p>
+      <p class="status-line"><span class="status-dot" id="status-dot-hero"></span><span id="status-text-hero"></span></p>
+      <h1 class="hero-tipo__title" id="hero-title">Donde el hambre se rinde.</h1>
+      <div class="hero-tipo__grid">
+        <p class="hero-tipo__desc" id="hero-desc">Hamburguesas, lomitos, pizzas y empanadas en Alta Córdoba. Comé en el local, pedí delivery o alquilá el espacio para tu evento.</p>
+        <div class="hero-tipo__btns">
+          <a href="#/carta" class="btn btn-black btn-lift" id="hero-cta-carta">Ver la carta</a>
+          <button type="button" data-open-cart class="btn btn-outline-black" id="hero-cta-pedi">Pedí ahora<span class="cart-badge" data-cart-badge hidden>0</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="hero-tipo__strip">
+      <div class="wrap hero-tipo__strip-inner">
+        <a href="#/local" class="strip-link"><strong class="strip-strong">Dónde</strong> · Fragueiro y Francisco de Quevedo</a>
+        <span><strong class="strip-strong">Cuándo</strong> · Martes a domingo, 19 a 00 h</span>
+        <a href="#/delivery" class="strip-link"><strong class="strip-strong">Delivery</strong> · <span id="hero-delivery-from">envío desde $1.500</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-pad">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <h2 class="h2" data-reveal="0">Qué hay para comer</h2>
+          <p class="lead" data-reveal="60">Nueve categorías, todo hecho en el momento. Tocá una y vas directo a esa parte de la carta.</p>
+        </div>
+        <a data-reveal="120" href="#/carta" class="link-strong">Ver la carta completa</a>
+      </div>
+      <ul class="cat-grid" id="home-cat-grid"></ul>
+    </div>
+  </section>
+
+  <section class="section-pad section-pad--top-none">
+    <div class="wrap">
+      <h2 class="h2" data-reveal="0">Los más pedidos</h2>
+      <div class="top-grid" id="home-top-grid"></div>
+    </div>
+  </section>
+
+  <section id="local" class="section-dark section-pad">
+    <div class="wrap two-col">
+      <div>
+        <h2 class="h2 h2--yellow" data-reveal="0">Comé en el local</h2>
+        <p class="lead" data-reveal="60">Estamos en la esquina de Fragueiro y Francisco de Quevedo, en Alta Córdoba. Las mesas van por orden de llegada y los tragos solo se sirven acá.</p>
+        <dl class="dl-hours" data-reveal="120">
+          <dt>Martes a domingo</dt><dd>19 a 00 h</dd>
+          <dt>Lunes</dt><dd>Cerrado</dd>
+        </dl>
+        <div class="btn-row" data-reveal="160">
+          <a href="https://www.google.com/maps/search/?api=1&query=Fragueiro+y+Francisco+de+Quevedo,+Alta+C%C3%B3rdoba,+C%C3%B3rdoba" target="_blank" rel="noopener" class="btn btn-yellow">Cómo llegar</a>
+          <a href="#" id="wa-link-local" target="_blank" rel="noopener" class="btn btn-outline-white">Escribinos</a>
+        </div>
+      </div>
+      <div id="photo-local" class="photo-wrap" data-reveal="80" style="border-radius:8px" data-photo-label="el salón de noche" data-photo-ratio="4/3"></div>
+    </div>
+  </section>
+
+  <section class="section-pad">
+    <div class="wrap two-col two-col--alt">
+      <div id="photo-delivery" class="photo-wrap photo-wrap--alt" data-reveal="0" style="border-radius:8px" data-photo-label="pedido listo para salir" data-photo-ratio="4/3"></div>
+      <div class="order-1">
+        <h2 class="h2" data-reveal="0">Te lo llevamos</h2>
+        <p class="lead" data-reveal="60">Ponés tu dirección y te decimos si llegamos. El pedido se hace por WhatsApp.</p>
+        <a data-reveal="120" href="#/delivery" class="btn btn-black btn-lift" style="margin-top:32px">Ver zonas de delivery</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="eventos" class="section-yellow section-pad">
+    <div class="wrap two-col two-col--start">
+      <div>
+        <h2 class="h2" data-reveal="0">Alquilá el local</h2>
+        <p class="lead" data-reveal="60">Tu cumple, tu juntada, nuestra parrilla. El local entero para ustedes, hasta 40 personas, con menú armado con la carta y barra con tragos.</p>
+        <div id="photo-eventos" class="photo-wrap" data-reveal="120" style="border-radius:8px;max-width:520px;margin-top:36px" data-photo-label="un cumple en el local" data-photo-ratio="3/2"></div>
+      </div>
+      <form id="event-form" data-reveal="80" novalidate class="event-form">
+        <h3 class="h3">Reservá tu fecha</h3>
+        <p class="form-hint">Se abre WhatsApp con el mensaje listo para mandar.</p>
+        <label class="field">Tu nombre
+          <input type="text" id="ev-nombre" autocomplete="name">
+        </label>
+        <p class="field-error" id="err-nombre" hidden>Decinos cómo te llamás.</p>
+        <div class="field-row">
+          <label class="field">Fecha
+            <input type="date" id="ev-fecha">
+          </label>
+          <label class="field">Cuántos son
+            <input type="number" min="1" inputmode="numeric" id="ev-personas">
+          </label>
+        </div>
+        <p class="field-error" id="err-fecha" hidden>Falta la fecha o la cantidad de personas.</p>
+        <p class="field-error" id="err-capacidad" hidden></p>
+        <label class="field">Qué festejan
+          <select id="ev-tipo">
+            <option>Cumpleaños</option><option>Juntada</option><option>After office</option><option>Evento de empresa</option><option>Otro</option>
+          </select>
+        </label>
+        <button type="submit" class="btn btn-black btn-lift">Mandar por WhatsApp</button>
+      </form>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ CARTA ============ -->
+<main id="view-carta" class="view" hidden>
+
+  <section class="section-pad section-pad--carta-head">
+    <div class="wrap carta-head">
+      <div>
+        <h1 class="h1">La carta</h1>
+        <p class="lead">Elegís acá y armás tu pedido por WhatsApp, con delivery o retiro en el local.</p>
+      </div>
+      <button type="button" data-open-cart class="btn btn-yellow">Carrito<span class="cart-badge" data-cart-badge hidden>0</span></button>
+    </div>
+  </section>
+
+  <nav aria-label="Categorías" class="cat-nav">
+    <div class="wrap cat-nav__inner" id="carta-chip-list"></div>
+  </nav>
+
+  <div class="wrap carta-body">
+    <section class="carta-top-box">
+      <div class="photo-wrap carta-top-box__photo" style="border-radius:6px"></div>
+      <div>
+        <h2 class="h3 h3--big">Los más pedidos</h2>
+        <ul class="carta-top-box__list" id="carta-top-list"></ul>
+      </div>
+    </section>
+
+    <div id="carta-categories"></div>
+  </div>
+</main>
+
+<!-- ============ DELIVERY ============ -->
+<main id="view-delivery" class="view" hidden>
+
+  <section class="section-yellow section-pad section-pad--delivery-head">
+    <div class="wrap wrap--narrow">
+      <h1 class="h1 h1--md">¿Llegamos a tu casa?</h1>
+      <p class="lead">Ponés tu dirección y te decimos si llegamos.</p>
+      <form id="zone-form" class="zone-form">
+        <label for="barrio-input" class="visually-hidden">Tu barrio</label>
+        <input id="barrio-input" list="barrios-list" placeholder="Tu barrio, por ejemplo Cofico" autocomplete="off">
+        <button type="submit" class="btn btn-black btn-lift">Fijarme</button>
+        <datalist id="barrios-list"></datalist>
+      </form>
+      <div aria-live="polite" id="zone-result"></div>
+    </div>
+  </section>
+
+  <section class="section-pad">
+    <div class="wrap cat-cols">
+      <div>
+        <h2 class="h3 h3--big" data-reveal="0">Zonas y envío</h2>
+        <p class="lead lead--sm" data-reveal="60">Contadas desde la esquina de Fragueiro y Quevedo. Tocá tu barrio.</p>
+      </div>
+      <div data-reveal="80" id="zones-list"></div>
+    </div>
+  </section>
+
+  <section class="section-dark section-pad">
+    <div class="wrap cat-cols">
+      <h2 class="h3 h3--big h3--yellow" data-reveal="0">Antes de pedir</h2>
+      <dl class="dl-grid" data-reveal="80">
+        <div><dt>Medios de pago</dt><dd>Efectivo, transferencia o Mercado Pago, coordinado por WhatsApp.</dd></div>
+        <div id="cond-retiro-row"><dt>Retiro en el local</dt><dd>Pedís por WhatsApp, elegís retiro y lo buscás en Fragueiro y Quevedo.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ LEGAL ============ -->
+<main id="view-legal" class="view" hidden>
+  <section class="section-pad section-pad--top-none">
+    <div class="wrap wrap--narrow legal-page">
+      <h1 class="h1 h1--md" style="margin-top:56px">Legales</h1>
+      <p class="lead">Última actualización: 1 de noviembre de 2026.</p>
+
+      <h2 id="terminos" class="h3 h3--big legal-anchor">Términos y condiciones</h2>
+
+      <h3>1. Quiénes somos</h3>
+      <p>Este sitio es el canal de pedidos online de <strong>Fufa Food</strong>, local gastronómico ubicado en Fragueiro esquina Francisco de Quevedo, Alta Córdoba, Córdoba, Argentina. Al usar este sitio o hacer un pedido a través de él, aceptás estos términos.</p>
+
+      <h3>2. Cómo funcionan los pedidos</h3>
+      <p>Este sitio no procesa pagos ni cobra tarjetas: arma un resumen de tu pedido (productos, cantidades, toppings y total) y lo envía por WhatsApp al local. El pedido queda confirmado recién cuando el local te responde confirmando disponibilidad, no de forma automática al enviarlo. Fuera del horario de atención, el pedido se responde cuando el local vuelve a abrir.</p>
+
+      <h3>3. Precios y disponibilidad</h3>
+      <p>Los precios que ves en la carta son los vigentes al momento de cargar la página y pueden cambiar sin aviso previo. Un producto marcado como disponible puede agotarse entre que lo agregás al carrito y confirmás el pedido por WhatsApp; en ese caso el local te lo va a avisar al confirmar.</p>
+
+      <h3>4. Delivery</h3>
+      <p>Las zonas, costos y tiempos de envío que se muestran en la sección Delivery son estimados y pueden variar según demanda, clima o distancia exacta del domicilio. Si tu dirección no coincide claramente con una zona cargada, el envío se coordina directamente por WhatsApp.</p>
+
+      <h3>5. Medios de pago</h3>
+      <p>Efectivo, transferencia o Mercado Pago, coordinados directamente con el local al momento de entregar o retirar el pedido. Este sitio no guarda ni procesa datos de tarjetas ni de pago.</p>
+
+      <h3>6. Alquiler del local para eventos</h3>
+      <p>El formulario de "Alquilá el local" solo envía una consulta de disponibilidad por WhatsApp; no es una reserva confirmada hasta que el local la confirme por ese medio.</p>
+
+      <h3>7. Tus datos</h3>
+      <p>Para gestionar tu pedido te pedimos nombre, teléfono y, si corresponde, dirección. Esos datos se envían directo por WhatsApp al local para coordinar el pedido — no se almacenan en ningún servidor de este sitio, no se venden ni se comparten con terceros, y no se usan para enviarte publicidad.</p>
+
+      <h3>8. Propiedad del contenido</h3>
+      <p>Los textos, fotos y diseño de este sitio pertenecen a Fufa Food. No está permitido copiarlos o reutilizarlos sin autorización.</p>
+
+      <h3>9. Límite de responsabilidad</h3>
+      <p>Hacemos lo posible para que la información de este sitio (precios, horarios, disponibilidad) esté siempre actualizada, pero puede haber errores puntuales. Ante cualquier diferencia entre lo que ves acá y lo que te confirman por WhatsApp, vale lo que te confirmen por WhatsApp.</p>
+
+      <h3>10. Cambios en estos términos</h3>
+      <p>Podemos actualizar estos términos en cualquier momento; la fecha de arriba de todo indica la última actualización. Te recomendamos revisarlos de tanto en tanto.</p>
+
+      <h3>11. Contacto</h3>
+      <p>Cualquier consulta sobre estos términos, escribinos por <a href="#" id="legal-wa-link" target="_blank" rel="noopener">WhatsApp</a>.</p>
+
+      <h2 id="cookies" class="h3 h3--big legal-anchor" style="margin-top:56px">Política de cookies</h2>
+
+      <p>Este sitio no usa cookies de rastreo de terceros ni vende tus datos a redes publicitarias. Usamos el almacenamiento local de tu navegador (<em>localStorage</em>), que funciona de forma parecida a una cookie, para estas cosas:</p>
+
+      <div class="legal-table-wrap">
+      <table class="legal-table">
+        <thead><tr><th>Categoría</th><th>Para qué se usa</th><th>¿Se puede desactivar?</th></tr></thead>
+        <tbody>
+          <tr><td>Necesarias</td><td>Guardar el carrito de compra mientras navegás, recordar si ya viste el aviso de cookies, y (si entrás al panel del local) guardar la configuración del negocio.</td><td>No — el sitio no funciona sin esto.</td></tr>
+          <tr><td>Analíticas</td><td>Hoy no hay ninguna herramienta de estadísticas instalada en el sitio. Si en el futuro sumamos una (por ejemplo, para saber qué páginas se visitan más), se va a activar solo si la aceptás acá.</td><td>Sí.</td></tr>
+          <tr><td>Marketing</td><td>Hoy no hay ningún píxel de publicidad ni de redes sociales instalado. Si en el futuro se suma alguno, se va a activar solo si lo aceptás acá.</td><td>Sí.</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <p>Podés cambiar tu elección cuando quieras tocando el botón "Cookies" que vas a encontrar en el pie de página.</p>
+      <button type="button" class="btn btn-outline-black" id="legal-open-cookie-settings" style="margin-top:8px">Cambiar mis preferencias de cookies</button>
+
+      <p class="legal-disclaimer">Este texto es una guía general en lenguaje simple y no reemplaza el asesoramiento de un abogado. Para un negocio real, te recomendamos que un profesional lo revise según la Ley de Defensa del Consumidor y la Ley de Protección de Datos Personales (25.326) de Argentina.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="section-dark footer">
+  <div class="wrap">
+    <div class="footer__logo">FUFA FOOD</div>
+    <p class="footer__tag">Donde el hambre se rinde.</p>
+    <div class="footer__grid">
+      <p>Fragueiro esq. Francisco de Quevedo<br>Alta Córdoba, Córdoba</p>
+      <p>Martes a domingo, 19 a 00 h<br>Lunes cerrado</p>
+      <p><a href="#" id="wa-link-footer" target="_blank" rel="noopener">WhatsApp</a><br><a href="#" id="tel-link-footer">Llamar</a></p>
+      <p><a href="https://instagram.com/fufa.food" target="_blank" rel="noopener">Instagram @fufa.food</a><br><a href="https://tiktok.com/@fufafood" target="_blank" rel="noopener">TikTok @fufafood</a></p>
+    </div>
+    <div class="footer__legal">
+      <a href="#/legal">Términos y condiciones</a>
+      <a href="#/legal#cookies">Política de cookies</a>
+      <button type="button" id="footer-cookie-btn">Cookies</button>
+    </div>
+  </div>
+</footer>
+
+<a href="#" id="wa-float" target="_blank" rel="noopener" class="wa-float">WhatsApp</a>
+
+<div class="mobile-bar">
+  <button type="button" data-open-cart class="mobile-bar__btn mobile-bar__btn--yellow">Carrito<span class="cart-badge" data-cart-badge hidden>0</span></button>
+  <a href="#" id="wa-link-mobilebar" target="_blank" rel="noopener" class="mobile-bar__btn mobile-bar__btn--outline">WhatsApp</a>
+</div>
+
+<div id="product-modal-root"></div>
+<div id="cart-drawer-root"></div>
+
+<!-- ============ COOKIES ============ -->
+<div id="cookie-banner" class="cookie-banner" hidden role="dialog" aria-label="Preferencias de cookies">
+  <p class="cookie-banner__text">Usamos el almacenamiento de tu navegador para que el carrito funcione, y (si lo aceptás) para medir visitas en el futuro. Podés elegir qué permitir. <a href="#/legal#cookies">Más info</a>.</p>
+  <div class="cookie-banner__btns">
+    <button type="button" class="btn btn-outline-black" id="cookie-reject">Rechazar</button>
+    <button type="button" class="btn btn-outline-black" id="cookie-customize">Personalizar</button>
+    <button type="button" class="btn btn-yellow" id="cookie-accept">Aceptar todo</button>
+  </div>
+</div>
+
+<div id="cookie-modal-root"></div>
+
+<script src="script.js?v=20261101j"></script>
+</body>
+</html>
