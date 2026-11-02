@@ -183,6 +183,12 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 /* ===== Carta ===== */
 .section-pad--carta-head{padding:clamp(56px,8vw,104px) 0 clamp(32px,4vw,48px)}
 .carta-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:24px}
+.carta-search{position:relative;display:flex;align-items:center;flex:none;width:100%}
+@media (min-width:640px){.carta-search{width:260px}}
+.carta-search svg{position:absolute;left:14px;pointer-events:none;color:#0E0E0E;opacity:.5}
+.carta-search input{width:100%;min-height:48px;padding:0 14px 0 42px;background:#FFFFFF;border:2px solid #0E0E0E;border-radius:8px;font:400 16px 'Work Sans',sans-serif;color:#0E0E0E}
+.carta-search input::placeholder{color:#0E0E0E;opacity:.45}
+.carta-search input:focus-visible{outline:3px solid #0E0E0E;outline-offset:1px}
 .cat-nav{position:sticky;top:56px;z-index:40;background:#FFF8E1;border-bottom:2px solid #EFE3BC}
 @media (min-width:1024px){.cat-nav{top:64px}}
 .cat-nav__inner{padding:10px clamp(20px,3vw,32px);display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
@@ -308,6 +314,14 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .btn-add{min-height:38px;padding:0 16px;border-radius:6px;background:#0E0E0E;color:#FFD400;border:0;font:700 14px 'Work Sans',sans-serif;cursor:pointer;transition:background .15s ease,transform .1s ease}
 .btn-add:hover{background:#2a2a2a}
 .btn-add.is-added{background:#2DB84C;color:#FFFFFF}
+
+/* Stepper +/- de cada producto de la carta: suma directo al carrito sin
+   abrir el modal, para los productos que no tienen nada para elegir. */
+.qty-stepper{display:inline-flex;align-items:center;gap:0;height:38px;border:2px solid #0E0E0E;border-radius:6px;overflow:hidden}
+.qty-stepper__btn{min-width:36px;height:100%;background:#0E0E0E;color:#FFD400;border:0;font:700 17px 'Work Sans',sans-serif;cursor:pointer;transition:background .15s ease}
+.qty-stepper__btn:hover{background:#2a2a2a}
+.qty-stepper__btn:disabled{opacity:.35;cursor:not-allowed}
+.qty-stepper__val{min-width:26px;text-align:center;font:700 15px 'Work Sans',sans-serif;color:#0E0E0E}
 
 /* ===== Stepper genérico (cantidades) ===== */
 .stepper{display:inline-flex;align-items:center;gap:0;border:2px solid #0E0E0E;border-radius:6px;overflow:hidden}

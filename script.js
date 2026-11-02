@@ -239,6 +239,59 @@
     });
   }
 
+  /* -------- agregado rápido (sin modal) para productos sin opciones --------
+     8 de cada 10 productos de la carta no tienen toppings/sabores para elegir
+     (bebidas, helados, etc.); para esos no tiene sentido abrir el modal solo
+     para confirmar cantidad 1, así que se suman directo con un stepper +/-. */
+  function hasOptions(p) {
+    return !!(p && p.options && p.options.length);
+  }
+
+  function findSimpleCartLine(catSlug, name) {
+    return CART.filter(function (l) {
+      return l.catSlug === catSlug && l.name === name && (!l.toppings || !l.toppings.length);
+    })[0] || null;
+  }
+
+  function cartQtyFor(catSlug, name) {
+    var line = findSimpleCartLine(catSlug, name);
+    return line ? line.qty : 0;
+  }
+
+  function quickAddQty(catSlug, pid, delta) {
+    var c = CARTA_DATA ? CARTA_DATA.filter(function (cc) { return cc.slug === catSlug; })[0] : null;
+    var p = findProductById(catSlug, pid);
+    if (!c || !p) return;
+    var line = findSimpleCartLine(catSlug, p.name);
+    if (delta > 0) {
+      if (line) {
+        line.qty++;
+      } else {
+        CART.push({
+          id: 'l' + Date.now() + Math.random().toString(36).slice(2, 8),
+          catSlug: c.slug, catName: c.name, group: p.group || '',
+          name: p.name, unitPrice: p.price, qty: 1, toppings: []
+        });
+      }
+      showToast('Agregado al pedido ✓');
+    } else if (line) {
+      line.qty--;
+      if (line.qty <= 0) CART = CART.filter(function (x) { return x !== line; });
+    }
+    saveCart();
+  }
+
+  function updateStepperUi(el) {
+    var catSlug = el.getAttribute('data-qty-cat'), pid = el.getAttribute('data-qty-pid');
+    var p = findProductById(catSlug, pid);
+    if (!p) return;
+    var qty = cartQtyFor(catSlug, p.name);
+    var val = el.querySelector('[data-qty-val]');
+    if (val) val.textContent = String(qty);
+    var dec = el.querySelector('[data-qty-dec]');
+    if (dec) dec.disabled = qty <= 0;
+  }
+
   function nextOrderSeq() {
     var cur = parseInt(window.localStorage.getItem(SEQ_KEY) || '0', 10);
     if (isNaN(cur) || cur < 0) cur = 0;
@@ -801,7 +854,30 @@
   /* -------- delegación de eventos: producto, drawer y checkout -------- */
   document.addEventListener('click', function (e) {
     var add = e.target.closest('[data-add-product]');
-    if (add) { e.preventDefault(); openProductModal(add.getAttribute('data-cat'), add.getAttribute('data-pid')); return; }
+    if (add) {
+      e.preventDefault();
+      var addCat = add.getAttribute('data-cat'), addPid = add.getAttribute('data-pid');
+      var addProd = findProductById(addCat, addPid);
+      /* Sin opciones para elegir: se agrega directo, sin pasar por el modal. */
+      if (addProd && !hasOptions(addProd)) { quickAddQty(addCat, addPid, 1); }
+      else { openProductModal(addCat, addPid); }
+      return;
+    }
+
+    var qtyInc = e.target.closest('[data-qty-inc]');
+    if (qtyInc) {
+      var stepperInc = qtyInc.closest('[data-qty-pid]');
+      quickAddQty(stepperInc.getAttribute('data-qty-cat'), stepperInc.getAttribute('data-qty-pid'), 1);
+      updateStepperUi(stepperInc);
+      return;
+    }
+    var qtyDec = e.target.closest('[data-qty-dec]');
+    if (qtyDec) {
+      var stepperDec = qtyDec.closest('[data-qty-pid]');
+      quickAddQty(stepperDec.getAttribute('data-qty-cat'), stepperDec.getAttribute('data-qty-pid'), -1);
+      updateStepperUi(stepperDec);
+      return;
+    }
 
     if (e.target.closest('[data-modal-close]') || e.target.id === 'product-modal-overlay') { closeProductModal(); return; }
     if (e.target.closest('[data-modal-photo-prev]')) { MODAL.photoIndex = (MODAL.photoIndex || 0) - 1; renderModal(); return; }
@@ -1101,6 +1177,15 @@
         var title = key ? '<h3 class="cat-group__title">' + escapeHtml(key) + '</h3>' : '';
         var items = groupMap[key].map(function (p) {
           var desc = p.desc ? '<div class="cat-items__desc">' + escapeHtml(p.desc) + '</div>' : '';
+          var addControl = hasOptions(p)
+            ? '<button type="button" class="btn-add" data-add-product data-cat="' + escapeHtml(c.slug) + '" data-pid="' + escapeHtml(p.id) + '"' + (p.soldOut ? ' disabled' : '') + '>Agregar al pedido</button>'
+            : (
+              '<div class="qty-stepper" data-qty-cat="' + escapeHtml(c.slug) + '" data-qty-pid="' + escapeHtml(p.id) + '">' +
+              '<button type="button" class="qty-stepper__btn" data-qty-dec aria-label="Quitar uno"' + ((p.soldOut || cartQtyFor(c.slug, p.name) <= 0) ? ' disabled' : '') + '>−</button>' +
+              '<span class="qty-stepper__val" data-qty-val>' + cartQtyFor(c.slug, p.name) + '</span>' +
+              '<button type="button" class="qty-stepper__btn qty-stepper__btn--add" data-qty-inc aria-label="Agregar uno"' + (p.soldOut ? ' disabled' : '') + '>+</button>' +
+              '</div>'
+            );
           var li = (
             '<li>' +
             '<div class="cat-items__thumb photo-wrap">' + productImg(p.thumb, p.name, '1/1', p.name, photoFitFor(c.slug)) + '</div>' +
@@ -1108,9 +1193,7 @@
             '<div class="cat-items__toprow"><div class="cat-items__name">' + escapeHtml(p.name) + '</div>' +
             '<span class="cat-items__price">' + priceHtml(p.price, p.priceDiscount) + '</span></div>' +
             desc +
-            '<div class="cat-items__add">' +
-            '<button type="button" class="btn-add" data-add-product data-cat="' + escapeHtml(c.slug) + '" data-pid="' + escapeHtml(p.id) + '"' + (p.soldOut ? ' disabled' : '') + '>Agregar al pedido</button>' +
-            '</div>' +
+            '<div class="cat-items__add">' + addControl + '</div>' +
             '</div></li>'
           );
           return soldOutWrap(p, li);
@@ -1433,6 +1516,36 @@
     renderCartaChips();
     renderCartaTop();
     renderCartaCategories();
+    applyCartaSearch();
+  }
+
+  /* Buscador de la carta: filtra los productos ya renderizados por nombre,
+     sin golpear el servidor ni perder el estado del stepper de cada fila. */
+  function applyCartaSearch() {
+    var input = document.getElementById('carta-search');
+    if (!input) return;
+    var q = norm(input.value.trim());
+    document.querySelectorAll('#carta-categories .cat-section').forEach(function (sec) {
+      var secVisible = false;
+      sec.querySelectorAll('.cat-group').forEach(function (grp) {
+        var grpVisible = false;
+        grp.querySelectorAll('.cat-items > li').forEach(function (li) {
+          var nameEl = li.querySelector('.cat-items__name');
+          var name = norm(nameEl ? nameEl.textContent : '');
+          var match = !q || name.indexOf(q) !== -1;
+          li.hidden = !match;
+          if (match) grpVisible = true;
+        });
+        grp.hidden = !grpVisible;
+        if (grpVisible) secVisible = true;
+      });
+      sec.hidden = !secVisible;
+    });
+  }
+
+  function initCartaSearch() {
+    var input = document.getElementById('carta-search');
+    if (input) input.addEventListener('input', applyCartaSearch);
   }
 
   function applyAdminEffects() {
@@ -1507,6 +1620,8 @@
         }
       });
     });
+
+    initCartaSearch();
 
     document.getElementById('menu-open-btn').addEventListener('click', openMenu);
     document.getElementById('menu-close-btn').addEventListener('click', closeMenu);
