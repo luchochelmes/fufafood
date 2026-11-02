@@ -955,7 +955,7 @@
       input.addEventListener('change', function () {
         var file = input.files && input.files[0];
         if (!file) return;
-        resizeImageToDataUrl(file, 800, function (dataUrl) {
+        resizeImageToDataUrl(file, key === 'hero' ? 1920 : 800, function (dataUrl) {
           if (key.indexOf('top::') === 0) {
             var pid = key.slice(5);
             var arr = photosFor(pid);
