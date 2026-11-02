@@ -12,6 +12,11 @@
   --beige:#F6EDCF;
 }
 
+.adm-login-overlay{position:fixed;inset:0;background:var(--ink);display:flex;align-items:center;justify-content:center;padding:20px;z-index:1000}
+.adm-login-box{background:var(--cream);border-radius:12px;padding:28px 26px;width:100%;max-width:320px;display:flex;flex-direction:column;gap:14px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
+.adm-login-box .adm-field{width:100%}
+.adm-login-box input{width:100%}
+
 *{box-sizing:border-box}
 html,body{margin:0}
 html{overflow-x:hidden}

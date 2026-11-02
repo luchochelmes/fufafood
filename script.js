@@ -2,16 +2,11 @@
   'use strict';
 
   /* ===================== panel del local (admin) ===================== */
-  /* Clave fija compartida con admin.js. Si está vacía (panel nunca usado) el
-     sitio se comporta exactamente igual que antes: sin overrides. */
-  var ADMIN_KEY = 'fufaAdminState_v1';
-  function loadAdmin() {
-    try {
-      var raw = window.localStorage.getItem(ADMIN_KEY);
-      return raw ? JSON.parse(raw) : {};
-    } catch (e) { return {}; }
-  }
-  var ADMIN = loadAdmin();
+  /* El estado real vive en Supabase (tabla app_settings, fila "main"),
+     escrito por admin.js. Mientras llega (o si todavía no se cargó nunca
+     nada desde el panel) el sitio arranca sin overrides, igual que antes. */
+  var db = window.fufaDb;
+  var ADMIN = {};
 
   /* ===================== DATA ===================== */
   var WA, waText, waDefault, waOrder;
@@ -876,6 +871,36 @@
     return lines.join('\n');
   }
 
+  /* Guarda el pedido real en Supabase para que aparezca en el Kanban del
+     panel. Es "mejor esfuerzo": si falla (sin conexión, etc.) no bloquea
+     el flujo — el pedido sigue yendo por WhatsApp igual, que es la vía
+     que el local usa de verdad para confirmar y cocinar. */
+  function saveRealOrder(total) {
+    if (!db) return;
+    var itemLines = CART.map(function (l) {
+      var s = l.qty + 'x ' + l.name;
+      if (l.toppings && l.toppings.length) {
+        s += ' (' + l.toppings.map(function (t) { return t.qty + 'x ' + t.name; }).join(', ') + ')';
+      }
+      return s;
+    });
+    var address = CHECKOUT.tipo === 'delivery' ? CHECKOUT.direccion : (CHECKOUT.tipo === 'local' ? CHECKOUT.mesa : '');
+    var zoneName = (CHECKOUT.tipo === 'delivery' && checkoutZone && checkoutZone !== -1) ? ZONES[checkoutZone.i].name : null;
+    db.from('orders').insert({
+      customer_name: CHECKOUT.nombre,
+      phone: CHECKOUT.telefono,
+      tipo: CHECKOUT.tipo,
+      address: address,
+      zone: zoneName,
+      payment: CHECKOUT.pago,
+      items: itemLines,
+      total: total,
+      status: 'nuevos'
+    }).then(function (res) {
+      if (res.error && window.console) console.error('No se pudo guardar el pedido real', res.error);
+    });
+  }
+
   function markField(inputId, errId, ok) {
     var input = document.getElementById(inputId);
     var err = document.getElementById(errId);
@@ -904,6 +929,7 @@
     var fecha = argDateStr(new Date());
     var msg = buildOrderMessage(seq, code, fecha, total);
 
+    saveRealOrder(total);
     window.open(waText(msg), '_blank', 'noopener');
 
     CART = [];
@@ -1685,19 +1711,36 @@
     refreshCarta();
   }
 
-  /* El panel (admin.html) y la web (index.html) son dos pestañas separadas
-     que comparten localStorage. El evento "storage" solo dispara en las
-     pestañas QUE NO escribieron el cambio, así que cuando el panel guarda
-     algo, esta pestaña se entera sola y se actualiza sin que haga falta
-     recargar. */
-  window.addEventListener('storage', function (e) {
-    if (e.key !== ADMIN_KEY) return;
-    ADMIN = loadAdmin();
+  /* El panel (admin.html) escribe en la tabla app_settings de Supabase.
+     Esta función se llama al cargar la página y de nuevo cada vez que
+     llega un cambio en vivo por la suscripción realtime de abajo, así
+     que un cliente que ya tiene la web abierta ve los cambios sin
+     recargar — sea que el panel se haya usado desde este mismo
+     navegador o desde cualquier otro dispositivo. */
+  function refreshAdmin(data) {
+    ADMIN = (data && typeof data === 'object') ? data : {};
     recomputeWa();
     recomputeZones();
     recomputeHours();
     applyAdminEffects();
-  });
+  }
+
+  function loadAdminFromDb() {
+    if (!db) return;
+    db.from('app_settings').select('data').eq('id', 'main').maybeSingle().then(function (res) {
+      if (res.error) { if (window.console) console.error(res.error); return; }
+      refreshAdmin(res.data && res.data.data);
+    });
+  }
+
+  function subscribeAdmin() {
+    if (!db) return;
+    db.channel('settings-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings', filter: 'id=eq.main' }, function (payload) {
+        refreshAdmin(payload.new && payload.new.data);
+      })
+      .subscribe();
+  }
 
   /* ===================== init ===================== */
   document.addEventListener('DOMContentLoaded', function () {
@@ -1711,6 +1754,8 @@
 
     renderStaticPhotos();
     applyAdminEffects();
+    loadAdminFromDb();
+    subscribeAdmin();
     setInterval(renderStatus, 60000);
 
     fetch('./data-carta.json').then(function (r) { return r.json(); }).then(function (data) {

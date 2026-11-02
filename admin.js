@@ -16,7 +16,7 @@
      la página y nunca se guardan.
      ============================================================ */
 
-  var STORAGE_KEY = 'fufaAdminState_v1';
+  var db = window.fufaDb; // ver supabase-client.js
 
   /* ===================== helpers ===================== */
   function escapeHtml(s) {
@@ -68,40 +68,43 @@
     };
   }
 
-  function loadState() {
-    var base = defaultState();
-    try {
-      var raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return base;
-      var saved = JSON.parse(raw);
-      if (!saved || typeof saved !== 'object') return base;
-      var out = base;
-      for (var k in saved) {
-        if (saved[k] == null) continue;
-        if (k === 'services') {
-          out[k] = Object.assign({}, base[k], saved[k]);
-        } else {
-          out[k] = saved[k];
-        }
+  function mergeState(base, saved) {
+    if (!saved || typeof saved !== 'object') return base;
+    var out = base;
+    for (var k in saved) {
+      if (saved[k] == null) continue;
+      if (k === 'services') {
+        out[k] = Object.assign({}, base[k], saved[k]);
+      } else {
+        out[k] = saved[k];
       }
-      return out;
-    } catch (e) { return base; }
+    }
+    return out;
   }
 
-  var state = loadState();
+  // Arranca con los valores por defecto; loadStateFromDb() los pisa una vez
+  // que hay sesión y llegó la fila real desde Supabase.
+  var state = defaultState();
+
+  function loadStateFromDb() {
+    return db.from('app_settings').select('data').eq('id', 'main').maybeSingle().then(function (res) {
+      if (res.error) { if (window.console) console.error(res.error); return; }
+      state = mergeState(defaultState(), res.data && res.data.data);
+    });
+  }
+
   var saveTimer = null;
   function save() {
     if (saveTimer) clearTimeout(saveTimer);
+    var el1 = byId('saved-text');
+    if (el1) el1.textContent = 'Guardando…';
     saveTimer = setTimeout(function () {
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      db.from('app_settings').upsert({ id: 'main', data: state, updated_at: new Date().toISOString() }).then(function (res) {
         var d = new Date();
         var hh = String(d.getHours()).padStart(2, '0');
         var mm = String(d.getMinutes()).padStart(2, '0');
-        var txt = 'Guardado ' + hh + ':' + mm;
-        var el1 = byId('saved-text');
-        if (el1) el1.textContent = txt;
-      } catch (e) { /* noop */ }
+        if (el1) el1.textContent = res.error ? 'No se pudo guardar — revisá tu conexión' : ('Guardado ' + hh + ':' + mm);
+      });
     }, 400);
   }
 
@@ -221,7 +224,9 @@
   }
 
   /* ============================================================
-     PEDIDOS (simulación local — en memoria, nunca se persiste)
+     PEDIDOS — tabla "orders" en Supabase. Los clientes insertan desde
+     la web (script.js) al confirmar el pedido; acá se leen y se les
+     cambia el estado en vivo.
      ============================================================ */
   var orders = [];
   var kanbanTab = 'nuevos';
@@ -234,11 +239,52 @@
   var NEXT_STATE = { nuevos: 'cocina', cocina: 'listos', listos: 'camino', camino: 'entregado' };
   var NEXT_LABEL = { nuevos: 'Aceptar', cocina: 'Marcar listo', listos: 'Salió', camino: 'Entregado' };
 
-  /* El tablero de pedidos es una simulación local (no hay backend todavía:
-     ver aviso de seguridad arriba del archivo), así que arranca vacío en
-     vez de mostrar pedidos de ejemplo. */
-  function seedOrders() {
-    orders = [];
+  function mapOrderRow(row) {
+    return {
+      id: row.id,
+      name: row.customer_name,
+      tipo: row.tipo,
+      addr: row.address || '',
+      items: Array.isArray(row.items) ? row.items : [],
+      pay: row.payment || '',
+      total: Number(row.total) || 0,
+      status: row.status,
+      createdAt: row.created_at
+    };
+  }
+  function ageMin(o) {
+    var ms = Date.now() - new Date(o.createdAt).getTime();
+    return Math.max(0, Math.round(ms / 60000));
+  }
+
+  function loadOrdersFromDb() {
+    return db.from('orders').select('*').neq('status', 'entregado').order('created_at', { ascending: false }).then(function (res) {
+      if (res.error) { if (window.console) console.error(res.error); return; }
+      orders = (res.data || []).map(mapOrderRow);
+    });
+  }
+
+  function subscribeOrders() {
+    db.channel('orders-live')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, function (payload) {
+        orders.unshift(mapOrderRow(payload.new));
+        renderKanban(); renderPedidosResumen(); renderBadges();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, function (payload) {
+        var updated = mapOrderRow(payload.new);
+        if (updated.status === 'entregado') {
+          orders = orders.filter(function (o) { return o.id !== updated.id; });
+        } else {
+          var i = orders.findIndex(function (o) { return o.id === updated.id; });
+          if (i >= 0) orders[i] = updated; else orders.unshift(updated);
+        }
+        renderKanban(); renderPedidosResumen(); renderBadges();
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, function (payload) {
+        orders = orders.filter(function (o) { return o.id !== payload.old.id; });
+        renderKanban(); renderPedidosResumen(); renderBadges();
+      })
+      .subscribe();
   }
 
   function tagHtml(tipo) {
@@ -260,7 +306,8 @@
   }
 
   function orderCardHtml(o) {
-    var late = (o.status === 'nuevos' && o.ageMin >= 5) || (o.status === 'cocina' && o.ageMin >= 20);
+    var mins = ageMin(o);
+    var late = (o.status === 'nuevos' && mins >= 5) || (o.status === 'cocina' && mins >= 20);
     var visibleItems = o.items.slice(0, 3);
     var items = visibleItems.map(function (it) { return '<li>' + escapeHtml(it) + '</li>'; }).join('');
     if (o.items.length > 3) items += '<li>+' + (o.items.length - 3) + ' más</li>';
@@ -273,7 +320,7 @@
     }
     return (
       '<article class="adm-card">' +
-      '<div class="adm-card__top"><span>#' + o.id + '</span><span class="adm-card__age' + (late ? ' is-late' : '') + '">' + o.ageMin + ' min</span></div>' +
+      '<div class="adm-card__top"><span>#' + o.id + '</span><span class="adm-card__age' + (late ? ' is-late' : '') + '">' + mins + ' min</span></div>' +
       '<div class="adm-card__name">' + escapeHtml(o.name) + '</div>' +
       tagHtml(o.tipo) +
       (o.addr ? '<div class="adm-card__addr">' + escapeHtml(o.addr) + '</div>' : '') +
@@ -302,7 +349,13 @@
       btn.addEventListener('click', function () {
         var id = +btn.getAttribute('data-advance');
         var o = orders.filter(function (x) { return x.id === id; })[0];
-        if (o) { o.status = NEXT_STATE[o.status]; renderKanbanTabs(); renderKanban(); renderPedidosResumen(); renderBadges(); }
+        if (!o) return;
+        var next = NEXT_STATE[o.status];
+        o.status = next;
+        renderKanbanTabs(); renderKanban(); renderPedidosResumen(); renderBadges();
+        db.from('orders').update({ status: next }).eq('id', id).then(function (res) {
+          if (res.error && window.console) console.error(res.error);
+        });
       });
     });
     board.querySelectorAll('[data-reject]').forEach(function (btn) {
@@ -310,6 +363,9 @@
         var id = +btn.getAttribute('data-reject');
         orders = orders.filter(function (x) { return x.id !== id; });
         renderKanbanTabs(); renderKanban(); renderPedidosResumen(); renderBadges();
+        db.from('orders').delete().eq('id', id).then(function (res) {
+          if (res.error && window.console) console.error(res.error);
+        });
       });
     });
     renderKanbanTabs();
@@ -341,10 +397,12 @@
   }
 
   function initPedidos() {
-    seedOrders();
-    renderKanban();
-    renderPedidosResumen();
-    renderBadges();
+    loadOrdersFromDb().then(function () {
+      renderKanban();
+      renderPedidosResumen();
+      renderBadges();
+    });
+    subscribeOrders();
     renderPausedBanner();
     var toggle = byId('receiving-toggle');
     if (toggle) {
@@ -355,11 +413,8 @@
         renderPausedBanner();
       });
     }
-    // envejecen cada minuto, para que la UI se sienta viva
-    setInterval(function () {
-      orders.forEach(function (o) { if (o.status !== 'entregado') o.ageMin++; });
-      renderKanban();
-    }, 60000);
+    // re-pinta cada minuto para que "hace N min" se actualice solo
+    setInterval(renderKanban, 60000);
   }
 
   /* ============================================================
@@ -967,34 +1022,81 @@
   }
 
   /* ============================================================
-     INIT
+     LOGIN (Supabase Auth)
      ============================================================ */
-  document.addEventListener('DOMContentLoaded', function () {
+  function showLogin() {
+    byId('login-overlay').hidden = false;
+    byId('adm-topbar').hidden = true;
+    byId('adm-shell').hidden = true;
+  }
+  function showApp() {
+    byId('login-overlay').hidden = true;
+    byId('adm-topbar').hidden = false;
+    byId('adm-shell').hidden = false;
+  }
+
+  function boot() {
+    showApp();
     initNav();
     showSection('pedidos');
     renderStatusIndicators();
     setInterval(renderStatusIndicators, 60000);
 
-    initPedidos(); // no depende del catálogo
+    loadStateFromDb().then(function () {
+      initPedidos();
+      renderPausedBanner();
 
-    fetch('./data-carta.json').then(function (r) { return r.json(); }).then(function (data) {
-      CARTA_DATA = data;
-      initCarta();
-      initDelivery();
-      renderFotos();
-      initServicios();
-      // los pedidos ya arrancaron con nombres genéricos si el fetch tardaba;
-      // los re-generamos una vez con ítems reales para que se vean bien.
-      seedOrders();
-      renderKanban();
-      renderPedidosResumen();
-      renderBadges();
-    }).catch(function (err) {
-      if (window.console) console.error('No se pudo cargar data-carta.json', err);
-      var wrap = byId('cat-editor');
-      if (wrap) wrap.innerHTML = '<p class="adm-hint">No pudimos cargar la carta. Probá recargar la página.</p>';
-      initDelivery();
-      initServicios();
+      fetch('./data-carta.json').then(function (r) { return r.json(); }).then(function (data) {
+        CARTA_DATA = data;
+        initCarta();
+        initDelivery();
+        renderFotos();
+        initServicios();
+      }).catch(function (err) {
+        if (window.console) console.error('No se pudo cargar data-carta.json', err);
+        var wrap = byId('cat-editor');
+        if (wrap) wrap.innerHTML = '<p class="adm-hint">No pudimos cargar la carta. Probá recargar la página.</p>';
+        initDelivery();
+        initServicios();
+      });
     });
-  });
+  }
+
+  function initAuth() {
+    if (!db) {
+      showLogin();
+      byId('login-error').textContent = 'No se pudo conectar con el servidor. Recargá la página.';
+      byId('login-error').hidden = false;
+      return;
+    }
+    var form = byId('login-form');
+    var errEl = byId('login-error');
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      errEl.hidden = true;
+      var email = byId('login-email').value.trim();
+      var password = byId('login-password').value;
+      byId('login-submit').disabled = true;
+      db.auth.signInWithPassword({ email: email, password: password }).then(function (res) {
+        byId('login-submit').disabled = false;
+        if (res.error) {
+          errEl.textContent = 'Email o contraseña incorrectos.';
+          errEl.hidden = false;
+          return;
+        }
+        boot();
+      });
+    });
+
+    byId('logout-btn').addEventListener('click', function () {
+      db.auth.signOut().then(function () { window.location.reload(); });
+    });
+
+    db.auth.getSession().then(function (res) {
+      if (res.data && res.data.session) boot();
+      else showLogin();
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', initAuth);
 })();
