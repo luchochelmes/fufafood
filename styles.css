@@ -109,9 +109,12 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 
 /* ===== Hero tipográfico ===== */
 .hero-tipo{background:#FFD400;background-size:cover;background-position:center}
-.hero-tipo--photo{background-color:#0E0E0E;min-height:70vh}
+.hero-tipo--photo{background-color:#0E0E0E;min-height:70vh;background-image:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.6)), var(--hero-bg-mobile)}
 .hero-tipo--photo .hero-tipo__inner{min-height:70vh;display:flex;flex-direction:column;justify-content:flex-end}
-@media (min-width:1024px){.hero-tipo--photo{min-height:85vh}.hero-tipo--photo .hero-tipo__inner{min-height:85vh}}
+@media (min-width:1024px){
+  .hero-tipo--photo{min-height:85vh;background-image:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.6)), var(--hero-bg-desktop)}
+  .hero-tipo--photo .hero-tipo__inner{min-height:85vh}
+}
 .hero-tipo--photo .hero-tipo__title,.hero-tipo--photo .hero-tipo__desc,.hero-tipo--photo .status-line{color:#fff}
 .hero-tipo--photo .hero-panel{background:rgba(255,255,255,.14);color:#fff}
 .hero-tipo--photo .hero-panel a{color:#FFD400}

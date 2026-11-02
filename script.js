@@ -1935,10 +1935,12 @@
     if (hero) {
       if (photos.hero) {
         hero.classList.add('hero-tipo--photo');
-        hero.style.backgroundImage = 'linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.6)), url("' + photos.hero + '")';
+        hero.style.setProperty('--hero-bg-desktop', 'url("' + photos.hero + '")');
+        hero.style.setProperty('--hero-bg-mobile', 'url("' + (photos.heroMobile || photos.hero) + '")');
       } else {
         hero.classList.remove('hero-tipo--photo');
-        hero.style.backgroundImage = '';
+        hero.style.removeProperty('--hero-bg-desktop');
+        hero.style.removeProperty('--hero-bg-mobile');
       }
     }
   }

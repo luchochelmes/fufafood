@@ -922,7 +922,8 @@
     if (!wrap || !CARTA_DATA) return;
 
     var inicioSlots = [
-      fotoSlotHtml('hero', 'Portada / hero', state.photos.hero, 'Se muestra de fondo en el inicio. Sin foto, queda el fondo amarillo.'),
+      fotoSlotHtml('hero', 'Portada / hero (desktop)', state.photos.hero, 'Se muestra de fondo en el inicio. Sin foto, queda el fondo amarillo.'),
+      fotoSlotHtml('heroMobile', 'Portada / hero (mobile)', state.photos.heroMobile, 'Opcional. Si la imagen de desktop corta texto o lo importante en mobile, subí acá una version recortada distinta para celular. Si no cargás esta, se usa la misma de desktop.'),
       fotoSlotHtml('local', 'El local', state.photos.local, null),
       fotoSlotHtml('delivery', 'Delivery', state.photos.delivery, null),
       fotoSlotHtml('eventos', 'Eventos', state.photos.eventos, null)
@@ -955,7 +956,7 @@
       input.addEventListener('change', function () {
         var file = input.files && input.files[0];
         if (!file) return;
-        resizeImageToDataUrl(file, key === 'hero' ? 1920 : 1200, function (dataUrl) {
+        resizeImageToDataUrl(file, key === 'hero' ? 1920 : (key === 'heroMobile' ? 1400 : 1200), function (dataUrl) {
           if (key.indexOf('top::') === 0) {
             var pid = key.slice(5);
             var arr = photosFor(pid);
