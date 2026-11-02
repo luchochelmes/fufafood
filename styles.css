@@ -299,12 +299,6 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .wa-float:hover{transform:translateY(-2px)}
 .wa-float__icon{flex:none}
 .wa-float__text{display:none}
-@media (min-width:1024px){
-  .wa-float{width:auto;height:48px;padding:0 20px;right:24px;bottom:24px;background:#0E0E0E;border:2px solid #FFD400;border-radius:6px;box-shadow:none}
-  .wa-float:hover{color:#FFD400}
-  .wa-float__icon{width:20px;height:20px}
-  .wa-float__text{display:inline}
-}
 
 /* ===== Barra flotante "Mi pedido" (mientras hay algo en el carrito) ===== */
 .order-bar{display:none;position:fixed;left:0;right:0;bottom:0;z-index:58;align-items:center;justify-content:space-between;gap:16px;width:100%;padding:16px 20px calc(16px + env(safe-area-inset-bottom));background:#0E0E0E;color:#FFF8E1;border:0;font:700 16px 'Work Sans',sans-serif;cursor:pointer;box-shadow:0 -4px 14px rgba(0,0,0,.3)}
