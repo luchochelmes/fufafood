@@ -1328,7 +1328,7 @@
      revirtiendo lo que ya no aplica (ej. si vuelven a prender el delivery). */
 
   function applyWaLinks() {
-    ['wa-float', 'wa-link-local', 'wa-link-footer', 'wa-link-mobilebar', 'legal-wa-link'].forEach(function (id) {
+    ['wa-float', 'wa-link-local', 'wa-link-footer', 'legal-wa-link'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.href = waDefault;
     });
@@ -1377,7 +1377,7 @@
     var off = ADMIN.receiving === false;
     var notice = document.getElementById('receiving-notice');
     if (notice) notice.hidden = !off;
-    document.querySelectorAll('#hero-cta-pedi, .btn-pedi-header, .mobile-bar__btn--yellow').forEach(function (btn) {
+    document.querySelectorAll('#hero-cta-pedi, .btn-pedi-header').forEach(function (btn) {
       if (btn.dataset.origHtml === undefined) btn.dataset.origHtml = btn.innerHTML;
       if (off) {
         btn.innerHTML = 'No disponible';
