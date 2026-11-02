@@ -12,20 +12,8 @@
 </head>
 <body>
 
-<!-- ===================== LOGIN ===================== -->
-<div class="adm-login-overlay" id="login-overlay" hidden>
-  <form class="adm-login-box" id="login-form">
-    <div class="adm-side__logo" style="margin-bottom:4px">FUFA FOOD</div>
-    <div class="adm-side__tag" style="margin-bottom:18px">Panel del local</div>
-    <label class="adm-field"><span>Email</span><input type="email" id="login-email" autocomplete="username" required></label>
-    <label class="adm-field"><span>Contraseña</span><input type="password" id="login-password" autocomplete="current-password" required></label>
-    <p class="adm-hint" id="login-error" style="color:#E63B2E" hidden></p>
-    <button type="submit" class="adm-btn adm-btn--yellow" id="login-submit">Entrar</button>
-  </form>
-</div>
-
 <!-- ===================== MOBILE TOP BAR ===================== -->
-<header class="adm-topbar" id="adm-topbar">
+<header class="adm-topbar">
   <span class="adm-topbar__logo">FUFA</span>
   <span class="adm-topbar__sub">Panel</span>
   <span class="adm-topbar__status">
@@ -34,7 +22,7 @@
   </span>
 </header>
 
-<div class="adm-shell" id="adm-shell">
+<div class="adm-shell">
 
   <!-- ===================== SIDEBAR (desktop) ===================== -->
   <aside class="adm-side">
@@ -56,7 +44,6 @@
       </div>
       <div class="adm-side__saved" id="saved-text">Los cambios se guardan solos</div>
       <a href="index.html" target="_blank" rel="noopener" class="adm-side__link">Ver la web →</a>
-      <button type="button" class="adm-side__link" id="logout-btn" style="background:none;border:0;text-align:left;cursor:pointer;padding:0">Cerrar sesión</button>
     </div>
   </aside>
 

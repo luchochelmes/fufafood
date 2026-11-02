@@ -4,16 +4,16 @@
   /* ============================================================
      Panel del local — Fufa Food (admin.js)
 
-     AVISO DE SEGURIDAD: este panel no tiene autenticación. Es una demo
-     local. Antes de exponerlo en producción hay que protegerlo con un
-     login real del lado del servidor.
+     AVISO DE SEGURIDAD: este panel no tiene login. Cualquiera que
+     conozca la URL /administracion puede editar todo (precios, zonas,
+     pedidos, etc). La base de datos (Supabase) tiene las reglas
+     configuradas para permitir esto sin login — ver supabase/schema.sql.
 
-     Persistencia: todo lo editable se guarda en localStorage bajo la
-     clave STORAGE_KEY (debounce ~400ms). script.js (sitio público) lee
-     la MISMA clave y aplica estos datos como overrides sobre el
-     catálogo real de data-carta.json. Los pedidos (kanban) son una
-     simulación en memoria: se generan de nuevo cada vez que se carga
-     la página y nunca se guardan.
+     Persistencia: todo lo editable se guarda en la tabla app_settings
+     de Supabase (debounce ~400ms, ver save()). script.js (sitio
+     público) lee la MISMA fila en vivo y aplica estos datos como
+     overrides sobre el catálogo real de data-carta.json. Los pedidos
+     (kanban) se leen y escriben de la tabla orders, también en vivo.
      ============================================================ */
 
   var db = window.fufaDb; // ver supabase-client.js
@@ -1022,21 +1022,9 @@
   }
 
   /* ============================================================
-     LOGIN (Supabase Auth)
+     INIT
      ============================================================ */
-  function showLogin() {
-    byId('login-overlay').hidden = false;
-    byId('adm-topbar').hidden = true;
-    byId('adm-shell').hidden = true;
-  }
-  function showApp() {
-    byId('login-overlay').hidden = true;
-    byId('adm-topbar').hidden = false;
-    byId('adm-shell').hidden = false;
-  }
-
   function boot() {
-    showApp();
     initNav();
     showSection('pedidos');
     renderStatusIndicators();
@@ -1062,41 +1050,5 @@
     });
   }
 
-  function initAuth() {
-    if (!db) {
-      showLogin();
-      byId('login-error').textContent = 'No se pudo conectar con el servidor. Recargá la página.';
-      byId('login-error').hidden = false;
-      return;
-    }
-    var form = byId('login-form');
-    var errEl = byId('login-error');
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      errEl.hidden = true;
-      var email = byId('login-email').value.trim();
-      var password = byId('login-password').value;
-      byId('login-submit').disabled = true;
-      db.auth.signInWithPassword({ email: email, password: password }).then(function (res) {
-        byId('login-submit').disabled = false;
-        if (res.error) {
-          errEl.textContent = 'Email o contraseña incorrectos.';
-          errEl.hidden = false;
-          return;
-        }
-        boot();
-      });
-    });
-
-    byId('logout-btn').addEventListener('click', function () {
-      db.auth.signOut().then(function () { window.location.reload(); });
-    });
-
-    db.auth.getSession().then(function (res) {
-      if (res.data && res.data.session) boot();
-      else showLogin();
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', initAuth);
+  document.addEventListener('DOMContentLoaded', boot);
 })();
