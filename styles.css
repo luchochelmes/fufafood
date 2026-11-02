@@ -113,16 +113,12 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .hero-tipo--photo .hero-tipo__title,.hero-tipo--photo .hero-tipo__desc,.hero-tipo--photo .status-line{color:#fff}
 .hero-tipo--photo .hero-panel{background:rgba(255,255,255,.14);color:#fff}
 .hero-tipo--photo .hero-panel a{color:#FFD400}
-.hero-tipo__inner{padding:clamp(48px,7vw,96px) clamp(20px,3vw,32px) clamp(40px,5vw,64px)}
+.hero-tipo__inner{padding:clamp(40px,6vw,72px) clamp(20px,3vw,32px) clamp(36px,5vw,56px)}
 .status-line{display:flex;align-items:center;gap:8px;margin:0;font-size:15px;font-weight:500}
 .hero-tipo__title{font-size:clamp(42px,11.5vw,168px);line-height:0.95;letter-spacing:0.005em;text-transform:uppercase;margin:20px 0 0 -0.04em}
-.hero-tipo__grid{display:grid;grid-template-columns:minmax(0,1fr);gap:24px 48px;align-items:end;margin-top:clamp(32px,4vw,56px)}
 .hero-tipo__desc{font-size:18px;line-height:1.55;margin:0;max-width:40ch}
 .hero-tipo__btns{display:flex;flex-wrap:wrap;gap:12px;justify-content:flex-start}
-@media (min-width:1024px){
-  .hero-tipo__grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
-  .hero-tipo__btns{justify-content:flex-end}
-}
+.hero-tipo__btns--standalone{margin-top:20px}
 .hero-panel{margin-top:24px;padding:20px clamp(20px,3vw,28px);background:rgba(14,14,14,.06);border-radius:10px}
 .hero-panel__line{margin:0 0 10px;font-size:15px;font-weight:500}
 .hero-panel .zone-form{margin-top:4px}
