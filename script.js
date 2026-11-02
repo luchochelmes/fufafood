@@ -243,15 +243,6 @@
       if (barCount) barCount.textContent = String(n);
       if (barTotal) barTotal.textContent = fmt(cartSubtotal());
     }
-    /* El toast de "Agregado al pedido" trae un botón "Ver pedido" y se
-       queda unos segundos en pantalla por su propio timer, sin enterarse
-       de si el carrito cambió mientras tanto. Si el pedido quedó vacío
-       (se borró todo, o se acaba de confirmar), no tiene sentido seguir
-       ofreciendo "Ver pedido" — lo sacamos ya. */
-    if (n === 0) {
-      var toast = document.querySelector('.ff-toast.ff-toast--action');
-      if (toast) { toast.hidden = true; clearTimeout(toastTimer); }
-    }
     layoutBottomBars();
   }
 
@@ -308,7 +299,7 @@
           name: p.name, unitPrice: p.price, qty: 1, toppings: []
         });
       }
-      showAddedToast();
+      showToast('Agregado al pedido ✓');
     } else if (line) {
       line.qty--;
       if (line.qty <= 0) CART = CART.filter(function (x) { return x !== line; });
@@ -663,37 +654,21 @@
     });
     saveCart();
     closeProductModal();
-    showAddedToast();
+    showToast('Agregado al pedido ✓');
   }
 
   var toastTimer = null;
-  function toastEl() {
+  function showToast(text) {
     var el = document.querySelector('.ff-toast');
     if (!el) {
       el = document.createElement('div');
       el.className = 'ff-toast';
       document.body.appendChild(el);
     }
-    return el;
-  }
-  function showToast(text) {
-    var el = toastEl();
-    el.classList.remove('ff-toast--action');
     el.textContent = text;
     el.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { el.hidden = true; }, 1800);
-  }
-  /* Confirmación de "se agregó al pedido": a diferencia del toast de texto
-     plano, esta se queda un poco más y trae un botón para ir directo al
-     carrito sin tener que buscar el ícono del header. */
-  function showAddedToast() {
-    var el = toastEl();
-    el.classList.add('ff-toast--action');
-    el.innerHTML = '<span>Agregado al pedido ✓</span><button type="button" class="ff-toast__btn" data-open-cart>Ver pedido</button>';
-    el.hidden = false;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.hidden = true; }, 3200);
   }
 
   /* -------- drawer del carrito + checkout -------- */
