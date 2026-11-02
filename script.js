@@ -65,10 +65,13 @@
   }
 
   var ZONES_DEFAULT = [
-    { name: 'Zona 1', cost: 1500, time: '25–35 min', km: 'hasta 1,5 km', barrios: ['Alta Córdoba', 'Cofico', 'General Bustos', 'Providencia'] },
-    { name: 'Zona 2', cost: 2500, time: '35–45 min', km: 'de 1,5 a 3 km', barrios: ['Pueyrredón', 'General Paz', 'Las Margaritas', 'Villa Cabrera', 'Centro'] },
-    { name: 'Zona 3', cost: 3500, time: '45–55 min', km: 'de 3 a 4,5 km', barrios: ['Juniors', 'San Martín', 'Alberdi', 'Marqués de Sobremonte'] }
+    { name: 'Zona 1', cost: 1500, time: '25–35 min', km: 'hasta 1,5 km', radius: 1.5, barrios: ['Alta Córdoba', 'Cofico', 'General Bustos', 'Providencia'] },
+    { name: 'Zona 2', cost: 2500, time: '35–45 min', km: 'de 1,5 a 3 km', radius: 3, barrios: ['Pueyrredón', 'General Paz', 'Las Margaritas', 'Villa Cabrera', 'Centro'] },
+    { name: 'Zona 3', cost: 3500, time: '45–55 min', km: 'de 3 a 4,5 km', radius: 4.5, barrios: ['Juniors', 'San Martín', 'Alberdi', 'Marqués de Sobremonte'] }
   ];
+  /* Coordenadas del local (Mariano Fragueiro 2706 esq. Quevedo), las mismas
+     que usa el mapa del panel — centro para calcular distancias reales. */
+  var CENTER_LAT = -31.3929, CENTER_LON = -64.1838;
   /* Si el panel guardó zonas propias, reemplazan por completo a las de fábrica
      (misma forma: name/cost/time/km/barrios). Las zonas apagadas no se listan. */
   var ZONES;
@@ -834,7 +837,7 @@
     /* Si ya validó un barrio en la sección Delivery, no le hacemos escribirlo
        de nuevo acá: precargamos la dirección y la zona encontrada. */
     if (!CHECKOUT.direccion && currentZone && currentZone !== -1) {
-      CHECKOUT.direccion = currentZone.b;
+      CHECKOUT.direccion = currentZone.addr || currentZone.b;
       checkoutZone = currentZone;
     }
     DRAWER_VIEW = 'checkout';
@@ -1401,7 +1404,7 @@
       btn.addEventListener('click', function () {
         var i = +btn.getAttribute('data-pick-zone');
         var b = btn.getAttribute('data-pick-barrio');
-        currentZone = { i: i, b: b };
+        currentZone = { i: i, b: b, addr: b };
         document.getElementById('barrio-input').value = b;
         renderZonesList();
         renderZoneResult();
@@ -1422,10 +1425,63 @@
       for (var j = 0; j < ZONES[i].barrios.length; j++) {
         var b = ZONES[i].barrios[j];
         var nb = norm(b);
-        if (nb === n || (n.length >= 4 && (nb.indexOf(n) !== -1 || n.indexOf(nb) !== -1))) return { i: i, b: b };
+        if (nb === n || (n.length >= 4 && (nb.indexOf(n) !== -1 || n.indexOf(nb) !== -1))) return { i: i, b: b, addr: q.trim() };
       }
     }
     return -1;
+  }
+
+  /* ===================== zona por dirección (sin barrio escrito) =====================
+     Si no reconocemos el barrio en lo que escribió, probamos ubicar la
+     dirección con OpenStreetMap (gratis, sin API key) y calculamos la
+     distancia real al local para asignar la zona por el radio en km que
+     ya tiene cada una (mismo criterio que el mapa del panel). Si el
+     buscador no encuentra nada, no inventamos una zona: queda "no
+     reconocida" igual que antes, y se sugiere confirmar por WhatsApp. */
+  function haversineKm(lat1, lon1, lat2, lon2) {
+    var R = 6371;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLon = (lon2 - lon1) * Math.PI / 180;
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function zoneIndexByDistanceKm(km) {
+    for (var i = 0; i < ZONES.length; i++) {
+      if (typeof ZONES[i].radius === 'number' && km <= ZONES[i].radius) return i;
+    }
+    return -1;
+  }
+
+  function geocodeAddress(query) {
+    var pad = 0.15; // ~16km a la redonda del local, suficiente para toda la ciudad
+    var viewbox = [CENTER_LON - pad, CENTER_LAT + pad, CENTER_LON + pad, CENTER_LAT - pad].join(',');
+    var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&bounded=1&viewbox=' +
+      viewbox + '&q=' + encodeURIComponent(query + ', Córdoba, Argentina');
+    return fetch(url).then(function (r) { return r.json(); }).then(function (results) {
+      if (!results || !results.length) return null;
+      return { lat: parseFloat(results[0].lat), lon: parseFloat(results[0].lon) };
+    }).catch(function () { return null; });
+  }
+
+  /* Versión async de findZone: primero prueba el match rápido por barrio
+     (gratis, instantáneo) y solo si no encuentra nada intenta geocodificar
+     la dirección completa. Siempre devuelve una promesa con el mismo shape
+     que findZone (null / -1 / {i,b,addr}). */
+  function resolveZone(q) {
+    var local = findZone(q);
+    if (local === null || local !== -1) return Promise.resolve(local);
+    var query = (q || '').trim();
+    if (query.length < 5) return Promise.resolve(-1);
+    return geocodeAddress(query).then(function (pos) {
+      if (!pos) return -1;
+      var km = haversineKm(CENTER_LAT, CENTER_LON, pos.lat, pos.lon);
+      var i = zoneIndexByDistanceKm(km);
+      if (i === -1) return -1;
+      return { i: i, b: ZONES[i].barrios[0], addr: query, geocoded: true };
+    });
   }
 
   function renderZoneResult() {
@@ -1436,7 +1492,7 @@
       return;
     }
     var z = ZONES[currentZone.i];
-    var line = currentZone.b + ': envío ' + fmt(z.cost) + ' · ' + z.time;
+    var line = (currentZone.addr || currentZone.b) + ': envío ' + fmt(z.cost) + ' · ' + z.time;
     el.innerHTML =
       '<div class="zone-result zone-result--yes">' +
       '<span class="ok"><span class="ok-dot"></span>Sí, llegamos</span>' +
@@ -1448,9 +1504,12 @@
   function checkZone(e) {
     if (e) e.preventDefault();
     var q = document.getElementById('barrio-input').value;
-    currentZone = findZone(q);
-    renderZonesList();
-    renderZoneResult();
+    document.getElementById('zone-result').innerHTML = '<p class="zone-result">Buscando tu dirección…</p>';
+    resolveZone(q).then(function (result) {
+      currentZone = result;
+      renderZonesList();
+      renderZoneResult();
+    });
   }
 
   /* ===================== hero: paneles Retirar / Delivery =====================
@@ -1485,7 +1544,7 @@
       return;
     }
     var z = ZONES[currentZone.i];
-    var line = currentZone.b + ': envío ' + fmt(z.cost) + ' · ' + z.time;
+    var line = (currentZone.addr || currentZone.b) + ': envío ' + fmt(z.cost) + ' · ' + z.time;
     el.innerHTML =
       '<div class="zone-result zone-result--yes">' +
       '<span class="ok"><span class="ok-dot"></span>Sí, llegamos</span>' +
@@ -1497,8 +1556,13 @@
   function checkHeroZone(e) {
     if (e) e.preventDefault();
     var input = document.getElementById('hero-barrio-input');
-    currentZone = findZone(input ? input.value : '');
-    renderHeroZoneResult();
+    var q = input ? input.value : '';
+    var el = document.getElementById('hero-zone-result');
+    if (el) el.innerHTML = '<p class="zone-result">Buscando tu dirección…</p>';
+    resolveZone(q).then(function (result) {
+      currentZone = result;
+      renderHeroZoneResult();
+    });
   }
 
   function initHeroPanels() {
