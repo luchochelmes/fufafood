@@ -970,7 +970,7 @@
     if (full) full.textContent = st.text;
     if (short) short.textContent = st.nav;
     if (hero) hero.textContent = st.text;
-    if (menu) menu.innerHTML = escapeHtml(st.text) + '<br>Fragueiro esq. Francisco de Quevedo, Alta Córdoba';
+    if (menu) menu.innerHTML = escapeHtml(st.text) + '<br>Mariano Fragueiro 2706, esq. Francisco de Quevedo, Alta Córdoba';
   }
 
   /* ===================== promo del día (martes/miércoles/jueves) ===================== */
