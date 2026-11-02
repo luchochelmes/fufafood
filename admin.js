@@ -162,6 +162,9 @@
     var ov = overrideFor(p.id);
     return ov.on !== false;
   }
+  function isPromo(p) {
+    return !!overrideFor(p.id).promo;
+  }
   function isDeleted(p) {
     return !!overrideFor(p.id).deleted;
   }
@@ -369,6 +372,8 @@
   function renderPausedBanner() {
     var el = byId('paused-banner');
     if (el) el.hidden = state.receiving !== false;
+    var waEl = byId('no-whatsapp-banner');
+    if (waEl) waEl.hidden = !!(state.whatsapp && state.whatsapp.trim());
   }
 
   function initPedidos() {
@@ -559,6 +564,7 @@
     var photos = photosFor(p.id);
     var thumb = photos.length ? photos[0] : p.thumb;
     var on = isOn(p);
+    var promo = isPromo(p);
     return (
       '<div class="adm-prod-row' + (on ? '' : ' is-off') + '" data-pid="' + escapeHtml(p.id) + '">' +
       '<div class="adm-prod-thumb" data-role="thumb" title="Click para administrar fotos">' +
@@ -572,9 +578,11 @@
       '</div>' +
       '<div class="adm-prod-side">' +
       '<label class="adm-switch"><input type="checkbox" data-role="on"' + (on ? ' checked' : '') + '><span class="adm-switch__track"><span class="adm-switch__thumb"></span></span><span class="adm-switch__label">Disponible</span></label>' +
+      '<label class="adm-switch"><input type="checkbox" data-role="promo"' + (promo ? ' checked' : '') + '><span class="adm-switch__track"><span class="adm-switch__thumb"></span></span><span class="adm-switch__label">En promo hoy</span></label>' +
       '<button type="button" class="adm-x-btn" data-role="delete" title="Borrar producto">×</button>' +
       '</div>' +
       (!on ? '<span class="adm-sold-out">Agotado</span>' : '') +
+      (promo ? '<span class="adm-sold-out" style="background:#2DB84C">En promo</span>' : '') +
       '</div>'
     );
   }
@@ -611,6 +619,10 @@
       row.querySelector('[data-role="price"]').addEventListener('input', function (e) { setOverride(pid, { price: +e.target.value || 0 }); });
       row.querySelector('[data-role="on"]').addEventListener('change', function (e) {
         setOverride(pid, { on: e.target.checked });
+        renderCatEditor();
+      });
+      row.querySelector('[data-role="promo"]').addEventListener('change', function (e) {
+        setOverride(pid, { promo: e.target.checked });
         renderCatEditor();
       });
       row.querySelector('[data-role="delete"]').addEventListener('click', function () {
@@ -986,7 +998,7 @@
     byId('svc-capacidad').value = state.capacidad;
     byId('svc-whatsapp').value = state.whatsapp;
     byId('svc-capacidad').addEventListener('input', function (e) { state.capacidad = +e.target.value || 0; save(); });
-    byId('svc-whatsapp').addEventListener('input', function (e) { state.whatsapp = e.target.value.trim(); save(); });
+    byId('svc-whatsapp').addEventListener('input', function (e) { state.whatsapp = e.target.value.trim(); save(); renderPausedBanner(); });
     renderStatusIndicators();
   }
 

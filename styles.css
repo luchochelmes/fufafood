@@ -161,7 +161,8 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .top-card:hover{transform:translateY(-4px)}
 .btn-add--top{width:100%;margin-top:12px;min-height:42px}
 .top-card__photo{border-radius:8px;overflow:hidden}
-.top-card__row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:14px}
+.top-card__cat{margin:12px 0 0;font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;opacity:.55}
+.top-card__row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:2px}
 .top-card__name{font-family:Anton,Impact,sans-serif;font-weight:400;font-size:24px;line-height:1.05;text-transform:uppercase;margin:0}
 .top-card__price{font-family:Anton,Impact,sans-serif;font-size:22px}
 .top-card__desc{margin:6px 0 0;font-size:15px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -179,6 +180,7 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .field input,.field select{min-height:50px;padding:0 14px;background:#FFFFFF;border:2px solid #0E0E0E;border-radius:6px;font:400 17px 'Work Sans',sans-serif;color:#0E0E0E}
 .field-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:18px}
 .field-error{margin:-10px 0 0;color:#E63B2E;font-weight:700;font-size:14px}
+.field input.is-invalid{border-color:#E63B2E}
 
 /* ===== Carta ===== */
 .section-pad--carta-head{padding:clamp(56px,8vw,104px) 0 clamp(32px,4vw,48px)}
@@ -314,11 +316,11 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 
 /* Stepper +/- de cada producto de la carta: suma directo al carrito sin
    abrir el modal, para los productos que no tienen nada para elegir. */
-.qty-stepper{display:inline-flex;align-items:center;gap:0;height:38px;border:2px solid #0E0E0E;border-radius:6px;overflow:hidden}
-.qty-stepper__btn{min-width:36px;height:100%;background:#0E0E0E;color:#FFD400;border:0;font:700 17px 'Work Sans',sans-serif;cursor:pointer;transition:background .15s ease}
+.qty-stepper{display:inline-flex;align-items:center;gap:0;height:38px;background:#0E0E0E;border-radius:6px;overflow:hidden}
+.qty-stepper__btn{min-width:36px;height:100%;background:transparent;color:#FFD400;border:0;font:700 17px 'Work Sans',sans-serif;cursor:pointer;transition:background .15s ease}
 .qty-stepper__btn:hover{background:#2a2a2a}
 .qty-stepper__btn:disabled{opacity:.35;cursor:not-allowed}
-.qty-stepper__val{min-width:26px;text-align:center;font:700 15px 'Work Sans',sans-serif;color:#0E0E0E}
+.qty-stepper__val{min-width:22px;text-align:center;font:700 14px 'Work Sans',sans-serif;color:#FFD400}
 
 /* ===== Stepper genérico (cantidades) ===== */
 .stepper{display:inline-flex;align-items:center;gap:0;border:2px solid #0E0E0E;border-radius:6px;overflow:hidden}
@@ -432,12 +434,12 @@ label.opt-row.is-checked .opt-row__price{color:#0E0E0E}
 .legal-disclaimer{margin-top:40px;padding:14px 16px;background:#F6EDCF;border-radius:8px;font-size:13px;line-height:1.5;opacity:.8}
 
 /* ===== Banner de cookies ===== */
-.cookie-banner{position:fixed;left:0;right:0;bottom:0;z-index:95;background:#0E0E0E;color:#FFFFFF;padding:18px clamp(16px,3vw,28px);display:flex;flex-wrap:wrap;align-items:center;gap:14px 24px;box-shadow:0 -6px 20px rgba(0,0,0,.25)}
+.cookie-banner{position:fixed;left:0;right:0;bottom:0;z-index:95;background:#0E0E0E;color:#FFFFFF;padding:14px clamp(16px,3vw,28px);display:flex;flex-wrap:wrap;align-items:center;gap:10px 24px;box-shadow:0 -6px 20px rgba(0,0,0,.25);max-height:40vh;overflow:auto}
 .cookie-banner[hidden]{display:none}
-.cookie-banner__text{flex:1 1 320px;margin:0;font-size:14px;line-height:1.5}
+.cookie-banner__text{flex:1 1 260px;margin:0;font-size:13px;line-height:1.4}
 .cookie-banner__text a{text-decoration:underline;color:#FFD400}
-.cookie-banner__btns{display:flex;flex-wrap:wrap;gap:10px}
-.cookie-banner .btn{min-height:42px;padding:0 16px;font-size:14px}
+.cookie-banner__btns{display:flex;flex-wrap:wrap;gap:8px}
+.cookie-banner .btn{min-height:38px;padding:0 14px;font-size:13px}
 .cookie-banner .btn-outline-black{border-color:#FFFFFF;color:#FFFFFF}
 .cookie-banner .btn-outline-black:hover{background:#FFFFFF;color:#0E0E0E}
 

@@ -262,6 +262,7 @@
     var c = CARTA_DATA ? CARTA_DATA.filter(function (cc) { return cc.slug === catSlug; })[0] : null;
     var p = findProductById(catSlug, pid);
     if (!c || !p) return;
+    if (delta > 0 && ADMIN.receiving === false) { showToast('Pausamos los pedidos por ahora. Escribinos por WhatsApp.'); return; }
     var line = findSimpleCartLine(catSlug, p.name);
     if (delta > 0) {
       if (line) {
@@ -503,7 +504,9 @@
           '</div>'
         );
       }
-      var rows2 = o.items.map(function (it) {
+      /* "Sin X" (quitar algo) no es un topping para sumar: lo mostramos aparte,
+         en "Modificaciones", para no mezclarlo con la lista de agregados. */
+      var rowHtml = function (it) {
         var checked = !!(MODAL.any[gi] && MODAL.any[gi][it.name]);
         var price = it.price > 0 ? '<span class="opt-row__price">+ ' + fmt(it.price) + '</span>' : '';
         return (
@@ -513,13 +516,30 @@
           '<input type="checkbox" data-any-toggle data-gi="' + gi + '" data-name="' + escapeHtml(it.name) + '"' + (checked ? ' checked' : '') + '>' +
           '</label>'
         );
-      }).join('');
-      return (
+      };
+      var mods = o.items.filter(function (it) { return /^sin\s/i.test(it.name); });
+      var regular = o.items.filter(function (it) { return !/^sin\s/i.test(it.name); });
+      var freeCount = regular.filter(function (it) {
+        return !it.price && MODAL.any[gi] && MODAL.any[gi][it.name];
+      }).length;
+      var isFree = regular.length && regular.every(function (it) { return !it.price; });
+      var title = o.name || 'Opciones';
+      var counter = isFree ? ' <span class="opt-group__hint is-ok">(sin cargo' + (freeCount ? ' · elegiste ' + freeCount : '') + ')</span>' : '';
+      var out = (
         '<div class="opt-group">' +
-        '<p class="opt-group__title">' + escapeHtml(o.name || 'Opciones') + '</p>' +
-        '<div class="opt-list">' + rows2 + '</div>' +
+        '<p class="opt-group__title">' + escapeHtml(title) + counter + '</p>' +
+        '<div class="opt-list">' + regular.map(rowHtml).join('') + '</div>' +
         '</div>'
       );
+      if (mods.length) {
+        out += (
+          '<div class="opt-group">' +
+          '<p class="opt-group__title">Modificaciones</p>' +
+          '<div class="opt-list">' + mods.map(rowHtml).join('') + '</div>' +
+          '</div>'
+        );
+      }
+      return out;
     }).join('');
 
     var canAdd = modalFixedOk();
@@ -623,13 +643,23 @@
     root.innerHTML = DRAWER_VIEW === 'checkout' ? drawerCheckoutHtml() : drawerCartHtml();
   }
 
+  /* Los tragos "solo para local" no tienen sentido en un pedido de delivery
+     o retiro; en vez de bloquear el agregado desde la carta (donde todavía
+     no eligió el modo), avisamos acá si el carrito tiene alguno y el modo
+     elegido no es "Consumo en el local". */
+  function soloLocalWarningHtml() {
+    if (CHECKOUT.tipo === 'local') return '';
+    var hasSoloLocal = CART.some(function (l) { return (CAT_META[l.catSlug] || {}).soloLocal; });
+    if (!hasSoloLocal) return '';
+    return '<p class="drawer-closed-notice">Tenés tragos que solo servimos en el local — si pedís delivery o retiro, los vamos a tener que sacar del pedido.</p>';
+  }
+
   function drawerCartHtml() {
     var body;
     if (!CART.length) {
       body = '<p class="drawer-empty">Todavía no agregaste nada. Elegí algo de la carta.</p>';
     } else {
       body = CART.map(function (l) {
-        var sub = l.group ? escapeHtml(l.catName) + ' (' + escapeHtml(l.group) + ')' : escapeHtml(l.catName);
         var tops = (l.toppings || []).length
           ? '<ul class="cart-line__tops">' + l.toppings.map(function (t) {
             return '<li>' + t.qty + 'x ' + escapeHtml(t.name) + (t.price > 0 ? ' (+' + fmt(t.price) + ')' : '') + '</li>';
@@ -637,7 +667,7 @@
           : '';
         return (
           '<div class="cart-line" data-line="' + l.id + '">' +
-          '<div class="cart-line__main"><span class="cart-line__name">' + l.qty + 'x ' + escapeHtml(l.name) + '<br><span class="cart-line__sub">' + sub + '</span></span>' +
+          '<div class="cart-line__main"><span class="cart-line__name">' + l.qty + 'x ' + escapeHtml(l.name) + '</span>' +
           '<span class="cart-line__price">' + fmt(linePrice(l)) + '</span></div>' +
           tops +
           '<div class="cart-line__ctrl">' +
@@ -660,6 +690,7 @@
       '<div class="drawer-panel" role="dialog" aria-modal="true" aria-label="Tu pedido">' +
       '<div class="drawer-head"><h3>Tu pedido</h3><button type="button" class="drawer-close" data-cart-close>Cerrar</button></div>' +
       (CART.length ? '<button type="button" class="drawer-clear" data-cart-clear>Vaciar carrito</button>' : '') +
+      soloLocalWarningHtml() +
       closedNotice +
       '<div class="drawer-body">' + body + '</div>' +
       '<div class="drawer-foot">' +
@@ -706,8 +737,10 @@
       }
       conditional =
         '<label class="field">Dirección (calle, altura y barrio)' +
-        '<input id="co-direccion" list="co-barrios-list" value="' + escapeHtml(CHECKOUT.direccion) + '" placeholder="Ej: Rivera Indarte 123, Cofico">' +
-        '</label>' + zoneHint;
+        '<input id="co-direccion" list="co-barrios-list" required value="' + escapeHtml(CHECKOUT.direccion) + '" placeholder="Ej: Rivera Indarte 123, Cofico">' +
+        '</label>' +
+        '<p class="field-error" id="co-err-direccion" hidden>Falta la dirección.</p>' +
+        zoneHint;
     } else if (tipo === 'local') {
       conditional =
         '<label class="field">Mesa<select id="co-mesa">' + mesaOptions + '</select></label>';
@@ -721,14 +754,16 @@
       '<div class="drawer-overlay" id="cart-drawer-overlay">' +
       '<div class="drawer-panel" role="dialog" aria-modal="true" aria-label="Terminar pedido">' +
       '<div class="drawer-head"><h3>Terminar pedido</h3><button type="button" class="drawer-close" data-cart-close>Cerrar</button></div>' +
+      soloLocalWarningHtml() +
       (getStatus().open ? '' : '<p class="drawer-closed-notice">Ahora estamos cerrados — igual podés mandar el pedido, lo confirmamos por WhatsApp apenas abramos.</p>') +
       '<form class="checkout-form" id="checkout-form">' +
       '<button type="button" class="checkout-back" data-cart-back>← Volver al carrito</button>' +
       '<div class="radio-group">' + radios + '</div>' +
       conditional +
-      '<label class="field">Tu nombre<input id="co-nombre" value="' + escapeHtml(CHECKOUT.nombre) + '" autocomplete="name"></label>' +
-      '<label class="field">Teléfono<input id="co-telefono" value="' + escapeHtml(CHECKOUT.telefono) + '" autocomplete="tel"></label>' +
-      '<p class="field-error" id="co-err" hidden>Completá nombre y teléfono' + (tipo === 'delivery' ? ' y la dirección' : '') + '.</p>' +
+      '<label class="field">Tu nombre<input id="co-nombre" required value="' + escapeHtml(CHECKOUT.nombre) + '" autocomplete="name"></label>' +
+      '<p class="field-error" id="co-err-nombre" hidden>Decinos cómo te llamás.</p>' +
+      '<label class="field">Teléfono<input id="co-telefono" required value="' + escapeHtml(CHECKOUT.telefono) + '" autocomplete="tel"></label>' +
+      '<p class="field-error" id="co-err-telefono" hidden>Falta un teléfono de contacto.</p>' +
       '<label class="field">Forma de pago<select id="co-pago">' +
       ['Efectivo', 'Transferencia', 'Mercado Pago'].map(function (o) { return '<option' + (CHECKOUT.pago === o ? ' selected' : '') + '>' + o + '</option>'; }).join('') +
       '</select></label>' +
@@ -763,6 +798,12 @@
     if (!CART.length) return;
     var avail = availableOrderTypes();
     if (avail.length && avail.indexOf(CHECKOUT.tipo) === -1) CHECKOUT.tipo = avail[0];
+    /* Si ya validó un barrio en la sección Delivery, no le hacemos escribirlo
+       de nuevo acá: precargamos la dirección y la zona encontrada. */
+    if (!CHECKOUT.direccion && currentZone && currentZone !== -1) {
+      CHECKOUT.direccion = currentZone.b;
+      checkoutZone = currentZone;
+    }
     DRAWER_VIEW = 'checkout';
     renderDrawer();
   }
@@ -824,17 +865,27 @@
     return lines.join('\n');
   }
 
+  function markField(inputId, errId, ok) {
+    var input = document.getElementById(inputId);
+    var err = document.getElementById(errId);
+    if (input) input.classList.toggle('is-invalid', !ok);
+    if (err) err.hidden = ok;
+  }
+
   function confirmOrder(e) {
     e.preventDefault();
-    var errEl = document.getElementById('co-err');
     var nombreOk = !!CHECKOUT.nombre.trim();
     var telOk = !!CHECKOUT.telefono.trim();
     var dirOk = CHECKOUT.tipo !== 'delivery' || !!CHECKOUT.direccion.trim();
+    markField('co-nombre', 'co-err-nombre', nombreOk);
+    markField('co-telefono', 'co-err-telefono', telOk);
+    if (CHECKOUT.tipo === 'delivery') markField('co-direccion', 'co-err-direccion', dirOk);
     if (!nombreOk || !telOk || !dirOk) {
-      if (errEl) errEl.hidden = false;
+      var firstBad = !nombreOk ? 'co-nombre' : (!telOk ? 'co-telefono' : 'co-direccion');
+      var el = document.getElementById(firstBad);
+      if (el) el.focus();
       return;
     }
-    if (errEl) errEl.hidden = true;
 
     var total = cartSubtotal() + deliveryCost();
     var seq = nextOrderSeq();
@@ -856,6 +907,7 @@
     var add = e.target.closest('[data-add-product]');
     if (add) {
       e.preventDefault();
+      if (ADMIN.receiving === false) { showToast('Pausamos los pedidos por ahora. Escribinos por WhatsApp.'); return; }
       var addCat = add.getAttribute('data-cat'), addPid = add.getAttribute('data-pid');
       var addProd = findProductById(addCat, addPid);
       /* Sin opciones para elegir: se agrega directo, sin pasar por el modal. */
@@ -955,12 +1007,13 @@
   });
 
   document.addEventListener('input', function (e) {
-    if (e.target.id === 'co-nombre') CHECKOUT.nombre = e.target.value;
-    if (e.target.id === 'co-telefono') CHECKOUT.telefono = e.target.value;
+    if (e.target.id === 'co-nombre') { CHECKOUT.nombre = e.target.value; markField('co-nombre', 'co-err-nombre', !!e.target.value.trim()); }
+    if (e.target.id === 'co-telefono') { CHECKOUT.telefono = e.target.value; markField('co-telefono', 'co-err-telefono', !!e.target.value.trim()); }
     if (e.target.id === 'co-pagocon') CHECKOUT.pagoCon = e.target.value;
     if (e.target.id === 'co-direccion') {
       CHECKOUT.direccion = e.target.value;
       checkoutZone = findZone(e.target.value);
+      markField('co-direccion', 'co-err-direccion', !!e.target.value.trim());
     }
   });
 
@@ -995,6 +1048,7 @@
         var photos = (ov.photos && ov.photos.length) ? ov.photos : (ov.photo ? [ov.photo] : null);
         if (photos && photos.length) { np.thumb = photos[0]; np.image = photos[0]; np.photos = photos; }
         if (ov.on === false) np.soldOut = true;
+        if (ov.promo) np.promo = true;
         return np;
       }).filter(Boolean);
       var catPhoto = ADMIN.photos && ADMIN.photos['cat-' + c.slug];
@@ -1049,30 +1103,42 @@
     if (menu) menu.innerHTML = escapeHtml(st.text) + '<br>Mariano Fragueiro 2706, esq. Francisco de Quevedo, Alta Córdoba';
   }
 
-  /* ===================== promo del día (martes/miércoles/jueves) ===================== */
-  var PROMOS = {
-    2: { tag: 'Promo martes', title: 'Martes de pizzas.', desc: '2 unidades con 10% off, 3 unidades con 15% off. Mozzarella, fugazza, napolitana o provenzal.' },
-    3: { tag: 'Promo miércoles', title: 'Miércoles de hamburguesas.', desc: 'Pedí 2 (simple, doble o triple) y tenés 10% off.' },
-    4: { tag: 'Promo jueves', title: '[Completá acá la promo de jueves]', desc: '[Completá acá la descripción y el precio de la promo de jueves]' }
-  };
+  /* ===================== promo de hoy (la activa el local desde el panel) =====================
+     El local marca un producto como "En promo hoy" en Carta y precios; acá lo
+     mostramos en el hero con su nombre y precio reales en vez del texto de
+     siempre. Si no hay ningún producto en promo, el hero vuelve al default. */
+  var HERO_DEFAULT_TITLE = 'Donde el hambre se rinde.';
+  var HERO_DEFAULT_DESC = 'Hamburguesas, lomitos, pizzas y empanadas en Alta Córdoba. Comé en el local, pedí delivery o alquilá el espacio para tu evento.';
+
+  function findActivePromo() {
+    if (!CARTA_DATA) return null;
+    for (var i = 0; i < CARTA_DATA.length; i++) {
+      var c = CARTA_DATA[i];
+      for (var j = 0; j < c.products.length; j++) {
+        if (c.products[j].promo && !c.products[j].soldOut) return { catSlug: c.slug, product: c.products[j] };
+      }
+    }
+    return null;
+  }
 
   function renderHeroPromo() {
-    var promo = PROMOS[new Date().getDay()];
+    var found = findActivePromo();
     var section = document.getElementById('hero-section');
     var tag = document.getElementById('hero-promo-tag');
     var title = document.getElementById('hero-title');
     var desc = document.getElementById('hero-desc');
-    var ctaCarta = document.getElementById('hero-cta-carta');
-    if (!promo) {
+    if (!found) {
       if (section) section.classList.remove('hero-tipo--promo');
       if (tag) tag.hidden = true;
+      if (title) title.textContent = HERO_DEFAULT_TITLE;
+      if (desc) desc.textContent = HERO_DEFAULT_DESC;
       return;
     }
+    var p = found.product;
     if (section) section.classList.add('hero-tipo--promo');
-    if (tag) { tag.hidden = false; tag.textContent = promo.tag; }
-    if (title) title.textContent = promo.title;
-    if (desc) desc.textContent = promo.desc;
-    if (ctaCarta) ctaCarta.textContent = 'Ver la promo';
+    if (tag) { tag.hidden = false; tag.textContent = 'Promo de hoy'; }
+    if (title) title.textContent = p.name + '.';
+    if (desc) desc.textContent = (p.desc ? p.desc + ' ' : '') + 'Hoy a ' + fmt(p.price) + '.';
   }
 
   /* ===================== render: home categories grid ===================== */
@@ -1103,7 +1169,8 @@
     if (!CARTA_DATA) { el.innerHTML = '<p class="carta-loading">Cargando la carta…</p>'; return; }
     var picks = TOP_PICKS.map(function (pick) {
       var p = findProduct(pick.cat, pick.name);
-      return p ? { cat: pick.cat, p: p } : null;
+      var cat = CARTA_DATA.filter(function (c) { return c.slug === pick.cat; })[0];
+      return p ? { cat: pick.cat, catName: cat ? cat.name : '', p: p } : null;
     }).filter(Boolean);
     el.innerHTML = picks.map(function (pick, i) {
       var p = pick.p;
@@ -1111,6 +1178,7 @@
         '<article class="top-pick" data-reveal="' + String(i * 70) + '">' +
         '<a href="#/carta" class="top-card" data-go-cat="' + escapeHtml(pick.cat) + '">' +
         '<div class="top-card__photo photo-wrap" style="aspect-ratio:4/5">' + productImg(p.thumb, p.name, '4/5', p.name) + '</div>' +
+        '<p class="top-card__cat">' + escapeHtml(pick.catName) + '</p>' +
         '<div class="top-card__row"><h3 class="top-card__name">' + escapeHtml(p.name) + '</h3><span class="top-card__price">' + priceHtml(p.price, p.priceDiscount) + '</span></div>' +
         '<p class="top-card__desc">' + escapeHtml(p.desc || '') + '</p>' +
         '</a>' +
@@ -1337,12 +1405,13 @@
     io = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
         if (!entry.isIntersecting) return;
-        var el = entry.target, d = +el.getAttribute('data-reveal') || 0;
-        el.style.transition = 'opacity 500ms ease ' + d + 'ms, transform 500ms ease ' + d + 'ms';
+        /* Animación corta: menos "blanco" mientras se scrollea en el celular. */
+        var el = entry.target, d = Math.min(+el.getAttribute('data-reveal') || 0, 120);
+        el.style.transition = 'opacity 220ms ease ' + d + 'ms, transform 220ms ease ' + d + 'ms';
         el.style.opacity = '1'; el.style.transform = 'none';
         io.unobserve(el);
       });
-    }, { threshold: 0.12 });
+    }, { threshold: 0.03 });
   }
 
   function reveal() {
@@ -1350,7 +1419,7 @@
     document.querySelectorAll('[data-reveal]:not([data-rv])').forEach(function (el) {
       el.setAttribute('data-rv', '1');
       if (el.getBoundingClientRect().top < window.innerHeight * 0.95) return;
-      el.style.opacity = '0'; el.style.transform = 'translateY(16px)';
+      el.style.opacity = '0'; el.style.transform = 'translateY(8px)';
       if (io) io.observe(el);
     });
   }
@@ -1501,6 +1570,7 @@
     renderCartaChips();
     renderCartaCategories();
     applyCartaSearch();
+    renderHeroPromo();
   }
 
   /* Buscador de la carta: filtra los productos ya renderizados por nombre,
@@ -1538,7 +1608,6 @@
     applyServicesVisibility();
     applyReceivingState();
     renderStatus();
-    renderHeroPromo();
     applySectionPhotos();
     refreshCarta();
   }
