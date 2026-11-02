@@ -1731,6 +1731,12 @@
   function closeMenu() {
     document.getElementById('mobile-menu').hidden = true;
   }
+  document.addEventListener('click', function (e) {
+    var menu = document.getElementById('mobile-menu');
+    if (menu.hidden) return;
+    if (menu.contains(e.target) || e.target.closest('#menu-open-btn')) return;
+    closeMenu();
+  });
 
   /* ===================== router ===================== */
   var currentPage = 'home';
