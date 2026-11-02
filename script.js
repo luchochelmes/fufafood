@@ -299,7 +299,7 @@
           name: p.name, unitPrice: p.price, qty: 1, toppings: []
         });
       }
-      showToast('Agregado al pedido ✓');
+      showAddedToast();
     } else if (line) {
       line.qty--;
       if (line.qty <= 0) CART = CART.filter(function (x) { return x !== line; });
@@ -654,21 +654,37 @@
     });
     saveCart();
     closeProductModal();
-    showToast('Agregado al pedido ✓');
+    showAddedToast();
   }
 
   var toastTimer = null;
-  function showToast(text) {
+  function toastEl() {
     var el = document.querySelector('.ff-toast');
     if (!el) {
       el = document.createElement('div');
       el.className = 'ff-toast';
       document.body.appendChild(el);
     }
+    return el;
+  }
+  function showToast(text) {
+    var el = toastEl();
+    el.classList.remove('ff-toast--action');
     el.textContent = text;
     el.hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { el.hidden = true; }, 1800);
+  }
+  /* Confirmación de "se agregó al pedido": a diferencia del toast de texto
+     plano, esta se queda un poco más y trae un botón para ir directo al
+     carrito sin tener que buscar el ícono del header. */
+  function showAddedToast() {
+    var el = toastEl();
+    el.classList.add('ff-toast--action');
+    el.innerHTML = '<span>Agregado al pedido ✓</span><button type="button" class="ff-toast__btn" data-open-cart>Ver pedido</button>';
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.hidden = true; }, 3200);
   }
 
   /* -------- drawer del carrito + checkout -------- */
@@ -1909,11 +1925,16 @@
       .subscribe();
   }
 
+  /* Delegado (no querySelectorAll+listener directo) porque el botón "Ver
+     pedido" del toast de "agregado al pedido" se crea dinámicamente,
+     después de que ya corrió el wiring inicial. */
+  document.addEventListener('click', function (e) {
+    var openBtn = e.target.closest('[data-open-cart]');
+    if (openBtn) { e.preventDefault(); openCart(); }
+  });
+
   /* ===================== init ===================== */
   document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('[data-open-cart]').forEach(function (btn) {
-      btn.addEventListener('click', function (e) { e.preventDefault(); openCart(); });
-    });
     var modalRoot = document.getElementById('product-modal-root');
     var drawerRoot = document.getElementById('cart-drawer-root');
     if (modalRoot) modalRoot.hidden = true;
