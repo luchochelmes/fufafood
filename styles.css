@@ -313,7 +313,7 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .order-bar__count{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 6px;background:#FFD400;color:#0E0E0E;border-radius:50%;font-size:13px}
 .order-bar__total{color:#FFD400;font-size:17px}
 @media (min-width:1024px){
-  .order-bar{display:none !important}
+  .order-bar{left:24px;right:auto;bottom:24px;width:auto;max-width:360px;border-radius:10px;padding:14px 22px;box-shadow:0 6px 20px rgba(0,0,0,.3)}
 }
 
 /* ===== Reveal animation helper (JS toggles opacity/transform inline) ===== */
