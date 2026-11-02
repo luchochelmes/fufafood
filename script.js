@@ -1144,17 +1144,11 @@
 
   function renderCartaTop() {
     var el = document.getElementById('carta-top-list');
-    var photo = document.querySelector('.carta-top-box__photo');
     if (!CARTA_DATA) { el.innerHTML = '<li class="carta-loading">Cargando la carta…</li>'; return; }
     var picks = TOP_PICKS.map(function (pick) { return findProduct(pick.cat, pick.name); }).filter(Boolean);
     el.innerHTML = picks.map(function (p) {
       return '<li><span>' + escapeHtml(p.name) + '</span><span>' + priceHtml(p.price, p.priceDiscount) + '</span></li>';
     }).join('');
-    if (photo) {
-      var first = picks[0];
-      photo.style.aspectRatio = '4/3';
-      photo.innerHTML = first ? productImg(first.thumb, first.name, '4/3', first.name) : fotoFufa('Big Fufa', '4/3');
-    }
   }
 
   function renderCartaCategories() {

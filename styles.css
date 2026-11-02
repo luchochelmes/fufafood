@@ -198,9 +198,7 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 
 .carta-body{padding:clamp(48px,6vw,80px) clamp(20px,3vw,32px) clamp(80px,10vw,140px)}
 
-.carta-top-box{background:#FFD400;border-radius:8px;padding:clamp(24px,3vw,40px);display:grid;grid-template-columns:minmax(0,1fr);gap:24px;align-items:center}
-@media (min-width:640px){.carta-top-box{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)}}
-.carta-top-box__photo{border-radius:6px;overflow:hidden}
+.carta-top-box{background:#FFD400;border-radius:8px;padding:clamp(24px,3vw,40px)}
 .carta-top-box__list{list-style:none;margin:20px 0 0;padding:0;display:grid;gap:10px}
 .carta-top-box__list li{display:flex;justify-content:space-between;align-items:baseline;gap:16px;font-size:17px}
 .carta-top-box__list li span:first-child{font-weight:700}
@@ -216,6 +214,11 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .cat-group__title{font-weight:700;font-size:16px;margin:0 0 4px}
 .cat-items{list-style:none;margin:0;padding:0}
 .cat-items li{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:2px solid #EFE3BC}
+/* El buscador de la carta oculta secciones/grupos/filas con [hidden]; sin esto
+   el display:grid/flex de arriba gana y el hidden no se nota en pantalla. */
+.cat-section[hidden],
+.cat-group[hidden],
+.cat-items li[hidden]{display:none}
 .cat-items__thumb{flex:none;width:64px;height:64px;border-radius:6px;overflow:hidden;background:#FFF8E1}
 .cat-items__main{flex:1;min-width:0}
 .cat-items__toprow{display:flex;justify-content:space-between;align-items:baseline;gap:16px}
