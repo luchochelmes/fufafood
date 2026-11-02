@@ -234,47 +234,11 @@
   var NEXT_STATE = { nuevos: 'cocina', cocina: 'listos', listos: 'camino', camino: 'entregado' };
   var NEXT_LABEL = { nuevos: 'Aceptar', cocina: 'Marcar listo', listos: 'Salió', camino: 'Entregado' };
 
-  var SAMPLE_NAMES = ['Lucas Peralta', 'Martina Gómez', 'Facundo Ríos', 'Sofía Bianchi', 'Nahuel Acosta', 'Camila Torres', 'Agustín Molina', 'Valentina Suárez', 'Tomás Herrera', 'Julieta Correa'];
-  var SAMPLE_ADDR = ['Fragueiro 540, Alta Córdoba', 'Av. Pueyrredón 1230, Cofico', 'Rosario de Santa Fe 2100, General Bustos', 'Belgrano 450, Pueyrredón', 'Av. Vélez Sarsfield 2890, Alta Córdoba', 'Humberto Primo 1180, Cofico', 'Av. Colón 3400, General Paz', 'San Jerónimo 980, General Bustos'];
-  var SAMPLE_PAY = ['Efectivo', 'Transferencia', 'Mercado Pago', 'Tarjeta (en el local)'];
-
-  function pickSampleItems() {
-    var items = [];
-    if (CARTA_DATA && CARTA_DATA.length) {
-      var pool = [];
-      CARTA_DATA.forEach(function (c) { c.products.forEach(function (p) { pool.push(p); }); });
-      var n = 1 + Math.floor(Math.random() * 3);
-      for (var i = 0; i < n; i++) {
-        var p = pool[Math.floor(Math.random() * pool.length)];
-        if (p) items.push(p.name + (Math.random() > 0.7 ? ' x2' : ''));
-      }
-    }
-    if (!items.length) items = ['Big Fufa', 'Papas fritas'];
-    return items;
-  }
-
+  /* El tablero de pedidos es una simulación local (no hay backend todavía:
+     ver aviso de seguridad arriba del archivo), así que arranca vacío en
+     vez de mostrar pedidos de ejemplo. */
   function seedOrders() {
-    var list = [];
-    var dist = [
-      ['nuevos', 2], ['nuevos', 4], ['cocina', 8], ['cocina', 22],
-      ['listos', 12], ['camino', 35], ['entregado', 50], ['entregado', 65]
-    ];
-    dist.forEach(function (d, i) {
-      var isDelivery = Math.random() > 0.35;
-      var tipo = isDelivery ? 'delivery' : (Math.random() > 0.5 ? 'retiro' : 'local');
-      list.push({
-        id: 1000 + i,
-        ageMin: d[1],
-        status: d[0],
-        name: SAMPLE_NAMES[Math.floor(Math.random() * SAMPLE_NAMES.length)],
-        tipo: tipo,
-        addr: tipo === 'delivery' ? SAMPLE_ADDR[Math.floor(Math.random() * SAMPLE_ADDR.length)] : '',
-        items: pickSampleItems(),
-        pay: SAMPLE_PAY[Math.floor(Math.random() * SAMPLE_PAY.length)],
-        total: 8000 + Math.floor(Math.random() * 22) * 1000
-      });
-    });
-    orders = list;
+    orders = [];
   }
 
   function tagHtml(tipo) {
