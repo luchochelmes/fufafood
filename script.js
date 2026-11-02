@@ -1419,10 +1419,11 @@
      así si encuentra la zona, el checkout ya la trae precargada). */
   function renderHeroStatusLines() {
     var st = getStatus();
+    var html = '<strong>Cuándo</strong> · ' + escapeHtml(st.text);
     var r = document.getElementById('hero-panel-retiro-status');
     var d = document.getElementById('hero-panel-delivery-status');
-    if (r) r.textContent = 'Cuándo · ' + st.text;
-    if (d) d.textContent = 'Cuándo · ' + st.text;
+    if (r) r.innerHTML = html;
+    if (d) d.innerHTML = html;
   }
 
   function showHeroPanel(which) {
