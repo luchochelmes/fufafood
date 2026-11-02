@@ -1219,12 +1219,11 @@
   }
 
   /* ===================== promo de hoy (la activa el local desde el panel) =====================
-     El local marca un producto como "En promo hoy" en Carta y precios; acá lo
-     mostramos en el hero con su nombre y precio reales en vez del texto de
-     siempre. Si no hay ningún producto en promo, el hero vuelve al default. */
-  var HERO_DEFAULT_TITLE = 'Donde el hambre se rinde.';
-  var HERO_DEFAULT_DESC = 'Hamburguesas, lomitos, pizzas y empanadas en Alta Córdoba. Comé en el local, pedí delivery o alquilá el espacio para tu evento.';
-
+     El local marca uno o más productos como "En promo hoy" en Carta y
+     precios. Acá NO se toca el hero — se muestra como un recuadro
+     superpuesto (como el modal de producto) con una cruz para cerrar,
+     que aparece solo una vez por carga de página. Tocar la foto/info
+     manda directo a pedirlo, igual que "Agregar al pedido" en la carta. */
   function findActivePromos() {
     if (!CARTA_DATA) return [];
     var out = [];
@@ -1236,76 +1235,86 @@
     return out;
   }
 
-  /* La idea es que lo primero que se vea al entrar, si hay algo en promo,
-     sea la foto del producto (no solo texto) — y que tocarla te mande
-     directo a pedirlo, igual que cualquier botón "Agregar al pedido" de
-     la carta. Si hay más de uno, se puede pasar de foto con flechas o
-     puntos, como en la galería del modal de producto. */
-  var HERO_PROMO_IDX = 0;
+  var PROMO_IDX = 0;
+  var promoOverlayShownOnce = false;
+  var promoOverlayOpen = false;
 
-  function heroPromoCardHtml(promos, idx) {
+  function promoCardHtml(promos, idx) {
     var item = promos[idx];
     var p = item.product;
     var multi = promos.length > 1;
     var dots = multi ? promos.map(function (_, i) {
-      return '<button type="button" class="hero-promo-card__dot' + (i === idx ? ' is-active' : '') + '" data-hero-promo-dot="' + i + '" aria-label="Ver promo ' + (i + 1) + '"></button>';
+      return '<button type="button" class="promo-overlay__dot' + (i === idx ? ' is-active' : '') + '" data-promo-dot="' + i + '" aria-label="Ver promo ' + (i + 1) + '"></button>';
     }).join('') : '';
     /* Es un <div role="button"> y no un <button> real porque adentro tiene
        las flechas de "siguiente/anterior", que SÍ son botones de verdad —
        un botón real no puede contener otro botón (HTML inválido). */
     return (
-      '<div class="hero-promo-card__tap" data-add-product data-cat="' + escapeHtml(item.catSlug) + '" data-pid="' + escapeHtml(p.id) + '" role="button" tabindex="0" aria-label="Pedir ' + escapeHtml(p.name) + '">' +
-      '<div class="hero-promo-card__photo photo-wrap" style="aspect-ratio:4/3">' +
+      '<div class="promo-overlay__tap" data-add-product data-cat="' + escapeHtml(item.catSlug) + '" data-pid="' + escapeHtml(p.id) + '" role="button" tabindex="0" aria-label="Pedir ' + escapeHtml(p.name) + '">' +
+      '<div class="promo-overlay__photo photo-wrap" style="aspect-ratio:4/3">' +
       productImg(p.thumb, p.name, '4/3', p.name) +
-      (multi ? '<button type="button" class="hero-promo-card__arrow hero-promo-card__arrow--prev" data-hero-promo-prev aria-label="Promo anterior">‹</button>' : '') +
-      (multi ? '<button type="button" class="hero-promo-card__arrow hero-promo-card__arrow--next" data-hero-promo-next aria-label="Promo siguiente">›</button>' : '') +
+      (multi ? '<button type="button" class="promo-overlay__arrow promo-overlay__arrow--prev" data-promo-prev aria-label="Promo anterior">‹</button>' : '') +
+      (multi ? '<button type="button" class="promo-overlay__arrow promo-overlay__arrow--next" data-promo-next aria-label="Promo siguiente">›</button>' : '') +
       '</div>' +
-      '<div class="hero-promo-card__info">' +
-      '<h2 class="hero-promo-card__name">' + escapeHtml(p.name) + '</h2>' +
-      (p.desc ? '<p class="hero-promo-card__desc">' + escapeHtml(p.desc) + '</p>' : '') +
-      '<p class="hero-promo-card__price">' + priceHtml(p.price, p.priceDiscount) + '</p>' +
-      (multi ? '<div class="hero-promo-card__dots">' + dots + '</div>' : '') +
+      '<div class="promo-overlay__info">' +
+      '<h2 class="promo-overlay__name">' + escapeHtml(p.name) + '</h2>' +
+      (p.desc ? '<p class="promo-overlay__desc">' + escapeHtml(p.desc) + '</p>' : '') +
+      '<p class="promo-overlay__price">' + priceHtml(p.price, p.priceDiscount) + '</p>' +
+      (multi ? '<div class="promo-overlay__dots">' + dots + '</div>' : '') +
       '</div>' +
       '</div>'
     );
   }
 
-  function wireHeroPromoCard(promos) {
-    var card = document.getElementById('hero-promo-card');
-    if (!card) return;
-    var prev = card.querySelector('[data-hero-promo-prev]');
-    var next = card.querySelector('[data-hero-promo-next]');
-    if (prev) prev.addEventListener('click', function (e) { e.stopPropagation(); HERO_PROMO_IDX = (HERO_PROMO_IDX - 1 + promos.length) % promos.length; renderHeroPromo(); });
-    if (next) next.addEventListener('click', function (e) { e.stopPropagation(); HERO_PROMO_IDX = (HERO_PROMO_IDX + 1) % promos.length; renderHeroPromo(); });
-    card.querySelectorAll('[data-hero-promo-dot]').forEach(function (btn) {
-      btn.addEventListener('click', function (e) { e.stopPropagation(); HERO_PROMO_IDX = +btn.getAttribute('data-hero-promo-dot'); renderHeroPromo(); });
+  function renderPromoOverlay() {
+    var root = document.getElementById('promo-overlay-root');
+    if (!root) return;
+    var promos = findActivePromos();
+    if (!promos.length) { closePromoOverlay(); return; }
+    if (PROMO_IDX >= promos.length) PROMO_IDX = 0;
+    promoOverlayOpen = true;
+    root.innerHTML =
+      '<div class="modal-overlay promo-overlay" id="promo-overlay-backdrop">' +
+      '<div class="modal-box promo-overlay__box">' +
+      '<button type="button" class="modal-close promo-overlay__close" data-promo-close aria-label="Cerrar">×</button>' +
+      '<p class="promo-overlay__tag">' + (promos.length > 1 ? 'Promos de hoy' : 'Promo de hoy') + '</p>' +
+      promoCardHtml(promos, PROMO_IDX) +
+      '</div></div>';
+    var backdrop = document.getElementById('promo-overlay-backdrop');
+    if (backdrop) backdrop.addEventListener('click', function (e) { if (e.target === backdrop) closePromoOverlay(); });
+    var closeBtn = root.querySelector('[data-promo-close]');
+    if (closeBtn) closeBtn.addEventListener('click', closePromoOverlay);
+    var prev = root.querySelector('[data-promo-prev]');
+    var next = root.querySelector('[data-promo-next]');
+    if (prev) prev.addEventListener('click', function (e) { e.stopPropagation(); PROMO_IDX = (PROMO_IDX - 1 + promos.length) % promos.length; renderPromoOverlay(); });
+    if (next) next.addEventListener('click', function (e) { e.stopPropagation(); PROMO_IDX = (PROMO_IDX + 1) % promos.length; renderPromoOverlay(); });
+    root.querySelectorAll('[data-promo-dot]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) { e.stopPropagation(); PROMO_IDX = +btn.getAttribute('data-promo-dot'); renderPromoOverlay(); });
     });
+    var tap = root.querySelector('.promo-overlay__tap');
+    /* Al tocar para pedir, cerramos el recuadro antes de que el handler
+       global de [data-add-product] abra el modal del producto (si no,
+       quedan los dos superpuestos). */
+    if (tap) tap.addEventListener('click', function () { closePromoOverlay(); });
   }
 
+  function closePromoOverlay() {
+    promoOverlayOpen = false;
+    var root = document.getElementById('promo-overlay-root');
+    if (root) root.innerHTML = '';
+  }
+
+  /* Se llama cada vez que se refresca la carta (carga inicial o cambio en
+     vivo desde el panel). La abre sola una sola vez por carga de página;
+     si el cliente ya la cerró, no vuelve a aparecer sola, pero si queda
+     abierta y el local cambia la promo mientras tanto, se actualiza. */
   function renderHeroPromo() {
     var promos = findActivePromos();
-    var section = document.getElementById('hero-section');
-    var tag = document.getElementById('hero-promo-tag');
-    var title = document.getElementById('hero-title');
-    var desc = document.getElementById('hero-desc');
-    var card = document.getElementById('hero-promo-card');
-    if (!promos.length) {
-      if (section) section.classList.remove('hero-tipo--promo');
-      if (tag) tag.hidden = true;
-      if (title) { title.hidden = false; title.textContent = HERO_DEFAULT_TITLE; }
-      if (desc) { desc.hidden = false; desc.textContent = HERO_DEFAULT_DESC; }
-      if (card) { card.hidden = true; card.innerHTML = ''; }
-      return;
-    }
-    if (HERO_PROMO_IDX >= promos.length) HERO_PROMO_IDX = 0;
-    if (section) section.classList.add('hero-tipo--promo');
-    if (tag) { tag.hidden = false; tag.textContent = promos.length > 1 ? 'Promos de hoy' : 'Promo de hoy'; }
-    if (title) title.hidden = true;
-    if (desc) desc.hidden = true;
-    if (card) {
-      card.hidden = false;
-      card.innerHTML = heroPromoCardHtml(promos, HERO_PROMO_IDX);
-      wireHeroPromoCard(promos);
+    if (!promos.length) { if (promoOverlayOpen) closePromoOverlay(); return; }
+    if (promoOverlayOpen) { renderPromoOverlay(); return; }
+    if (!promoOverlayShownOnce) {
+      promoOverlayShownOnce = true;
+      renderPromoOverlay();
     }
   }
 
