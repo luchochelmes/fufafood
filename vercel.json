@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/administracion", "destination": "/admin.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
