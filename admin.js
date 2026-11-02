@@ -309,10 +309,10 @@
   function orderCardHtml(o) {
     var mins = ageMin(o);
     var late = (o.status === 'nuevos' && mins >= 5) || (o.status === 'cocina' && mins >= 20);
-    var visibleItems = o.items.slice(0, 3);
+    var visibleItems = o.items.slice(0, 2);
     var items = visibleItems.map(function (it) { return '<li>' + escapeHtml(it) + '</li>'; }).join('');
-    if (o.items.length > 3) items += '<li>+' + (o.items.length - 3) + ' más</li>';
-    var btns = '';
+    if (o.items.length > 2) items += '<li>+' + (o.items.length - 2) + ' más</li>';
+    var btns = '<button type="button" class="adm-btn adm-btn--outline adm-btn--sm" data-view="' + o.id + '">Ver pedido</button>';
     if (o.status !== 'entregado') {
       btns += '<button type="button" class="adm-btn adm-btn--yellow adm-btn--sm" data-advance="' + o.id + '">' + NEXT_LABEL[o.status] + '</button>';
     }
@@ -333,6 +333,39 @@
     );
   }
 
+  /* ----- modal de detalle del pedido ----- */
+  function orderDetailHtml(o) {
+    var items = o.items.map(function (it) { return '<li>' + escapeHtml(it) + '</li>'; }).join('');
+    return (
+      '<div class="adm-modal-overlay" id="adm-order-modal-overlay">' +
+      '<div class="adm-modal-box" role="dialog" aria-modal="true" aria-label="Pedido #' + (o.dailySeq != null ? o.dailySeq : o.id) + '">' +
+      '<button type="button" class="adm-modal-close" data-role="order-modal-close">Cerrar</button>' +
+      '<h3 class="adm-modal-title">Pedido #' + (o.dailySeq != null ? o.dailySeq : o.id) + '</h3>' +
+      '<p class="adm-hint">' + tagHtml(o.tipo) + ' · ' + ageMin(o) + ' min</p>' +
+      '<p><strong>' + escapeHtml(o.name) + '</strong></p>' +
+      (o.addr ? '<p>' + escapeHtml(o.addr) + '</p>' : '') +
+      '<ul class="adm-order-detail-items">' + items + '</ul>' +
+      '<p>' + escapeHtml(o.pay) + '</p>' +
+      '<p style="font-size:20px;font-weight:700">' + fmt(o.total) + '</p>' +
+      '</div></div>'
+    );
+  }
+  function openOrderDetail(id) {
+    var o = orders.filter(function (x) { return x.id === id; })[0];
+    if (!o) return;
+    var root = byId('order-modal-root');
+    if (!root) return;
+    root.innerHTML = orderDetailHtml(o);
+    var closeBtn = root.querySelector('[data-role="order-modal-close"]');
+    if (closeBtn) closeBtn.addEventListener('click', closeOrderDetail);
+    var overlay = byId('adm-order-modal-overlay');
+    if (overlay) overlay.addEventListener('click', function (e) { if (e.target === overlay) closeOrderDetail(); });
+  }
+  function closeOrderDetail() {
+    var root = byId('order-modal-root');
+    if (root) root.innerHTML = '';
+  }
+
   function renderKanban() {
     var board = byId('kanban-board');
     if (!board) return;
@@ -346,6 +379,9 @@
         '</div>'
       );
     }).join('');
+    board.querySelectorAll('[data-view]').forEach(function (btn) {
+      btn.addEventListener('click', function () { openOrderDetail(+btn.getAttribute('data-view')); });
+    });
     board.querySelectorAll('[data-advance]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var id = +btn.getAttribute('data-advance');

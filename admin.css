@@ -119,7 +119,7 @@ a{color:inherit}
 .adm-kcol.is-active{display:flex}
 @media (min-width:1024px){.adm-kcol{display:flex}}
 .adm-kcol__head{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;opacity:.7;display:flex;justify-content:space-between}
-.adm-card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 1px 3px rgba(14,14,14,.12);display:flex;flex-direction:column;gap:8px;height:360px;overflow:hidden}
+.adm-card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 1px 3px rgba(14,14,14,.12);display:flex;flex-direction:column;gap:8px}
 .adm-card__top{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:700}
 .adm-card__age{color:var(--ink)}
 .adm-card__age.is-late{color:var(--red)}
@@ -131,6 +131,7 @@ a{color:inherit}
 .adm-card__addr{font-size:13px;opacity:.75;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .adm-card__items{font-size:13px;margin:0;padding-left:16px}
 .adm-card__items li{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adm-order-detail-items{font-size:14px;line-height:1.6;margin:12px 0;padding-left:18px}
 .adm-card__pay{font-size:12px;opacity:.7}
 .adm-card__total{font-size:15px;font-weight:700}
 .adm-card__actions{display:flex;gap:8px;margin-top:auto;padding-top:4px}
