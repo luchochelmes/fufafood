@@ -242,6 +242,7 @@
   function mapOrderRow(row) {
     return {
       id: row.id,
+      dailySeq: row.daily_seq,
       name: row.customer_name,
       tipo: row.tipo,
       addr: row.address || '',
@@ -320,7 +321,7 @@
     }
     return (
       '<article class="adm-card">' +
-      '<div class="adm-card__top"><span>#' + o.id + '</span><span class="adm-card__age' + (late ? ' is-late' : '') + '">' + mins + ' min</span></div>' +
+      '<div class="adm-card__top"><span>#' + (o.dailySeq != null ? o.dailySeq : o.id) + '</span><span class="adm-card__age' + (late ? ' is-late' : '') + '">' + mins + ' min</span></div>' +
       '<div class="adm-card__name">' + escapeHtml(o.name) + '</div>' +
       tagHtml(o.tipo) +
       (o.addr ? '<div class="adm-card__addr">' + escapeHtml(o.addr) + '</div>' : '') +

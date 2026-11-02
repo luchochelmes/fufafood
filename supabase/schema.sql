@@ -78,6 +78,44 @@ create policy "public puede borrar pedidos" on orders
   for delete using (true);
 
 -- ============================================================
+-- 2.1) Numero de pedido del dia: el que se muestra en el mensaje de
+--      WhatsApp ("Pedido: #3"). Se calcula en el servidor (no en el
+--      celular del cliente) para que sea el mismo contador para TODOS
+--      los pedidos del local, y se reinicia solo porque esta atado a
+--      la fecha (huso horario de Cordoba).
+-- ============================================================
+create table if not exists daily_order_seq (
+  day date primary key,
+  seq integer not null default 0
+);
+
+create or replace function next_daily_order_seq() returns integer as $$
+declare
+  today date := (now() at time zone 'America/Argentina/Cordoba')::date;
+  n integer;
+begin
+  insert into daily_order_seq (day, seq) values (today, 1)
+    on conflict (day) do update set seq = daily_order_seq.seq + 1
+    returning seq into n;
+  return n;
+end;
+$$ language plpgsql;
+
+alter table orders add column if not exists daily_seq integer;
+
+create or replace function set_order_daily_seq() returns trigger as $$
+begin
+  new.daily_seq := next_daily_order_seq();
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_set_order_daily_seq on orders;
+create trigger trg_set_order_daily_seq
+  before insert on orders
+  for each row execute function set_order_daily_seq();
+
+-- ============================================================
 -- 3) Realtime: para que los cambios se vean en vivo sin recargar
 --    (a prueba de repetición: si ya estaban agregadas, no falla)
 -- ============================================================

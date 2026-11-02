@@ -568,16 +568,34 @@
       '<div class="modal-qty"><span class="modal-qty-label">Cantidad</span>' +
       '<span class="stepper">' +
       '<button type="button" data-modal-qty-dec' + (MODAL.qty <= 1 ? ' disabled' : '') + '>−</button>' +
-      '<span>' + MODAL.qty + '</span>' +
+      '<span id="modal-qty-val">' + MODAL.qty + '</span>' +
       '<button type="button" data-modal-qty-inc>+</button>' +
       '</span></div>' +
       groupsHtml +
       '<div class="modal-add-wrap">' + msg +
-      '<button type="button" class="btn btn-yellow" data-modal-add' + (canAdd ? '' : ' disabled') + '>Agregar al pedido · ' + fmt(total) + '</button>' +
+      '<button type="button" class="btn btn-yellow" id="modal-add-btn" data-modal-add' + (canAdd ? '' : ' disabled') + '>Agregar al pedido · ' + fmt(total) + '</button>' +
       '</div></div></div>';
 
     var newBox = root.querySelector('.modal-box');
     if (newBox && prevScroll) newBox.scrollTop = prevScroll;
+  }
+
+  /* Cambiar solo la cantidad (+ / -) no debería redibujar el modal entero:
+     eso destruye y vuelve a crear la foto, y en mobile se ve como un
+     parpadeo/zoom. Acá tocamos nada más que el número y el botón. */
+  function updateModalQtyUi() {
+    var root = document.getElementById('product-modal-root');
+    if (!root || !MODAL) return;
+    var p = MODAL.product;
+    var decBtn = root.querySelector('[data-modal-qty-dec]');
+    if (decBtn) decBtn.disabled = MODAL.qty <= 1;
+    var valEl = document.getElementById('modal-qty-val');
+    if (valEl) valEl.textContent = String(MODAL.qty);
+    var addBtn = document.getElementById('modal-add-btn');
+    if (addBtn && !addBtn.disabled) {
+      var total = MODAL.qty * (p.price + modalExtrasTotal());
+      addBtn.textContent = 'Agregar al pedido · ' + fmt(total);
+    }
   }
 
   function addModalToCart() {
@@ -872,11 +890,14 @@
   }
 
   /* Guarda el pedido real en Supabase para que aparezca en el Kanban del
-     panel. Es "mejor esfuerzo": si falla (sin conexión, etc.) no bloquea
-     el flujo — el pedido sigue yendo por WhatsApp igual, que es la vía
-     que el local usa de verdad para confirmar y cocinar. */
+     panel, y de paso trae el número de pedido del día (lo calcula un
+     trigger en el servidor — ver supabase/schema.sql — así es el mismo
+     contador para todos los pedidos del local, no uno por celular, y se
+     reinicia solo cada día). Devuelve una promesa con ese número (o null
+     si falló, p. ej. sin conexión): el pedido se manda por WhatsApp igual,
+     que es la vía que el local usa de verdad para confirmar y cocinar. */
   function saveRealOrder(total) {
-    if (!db) return;
+    if (!db) return Promise.resolve(null);
     var itemLines = CART.map(function (l) {
       var s = l.qty + 'x ' + l.name;
       if (l.toppings && l.toppings.length) {
@@ -886,7 +907,7 @@
     });
     var address = CHECKOUT.tipo === 'delivery' ? CHECKOUT.direccion : (CHECKOUT.tipo === 'local' ? CHECKOUT.mesa : '');
     var zoneName = (CHECKOUT.tipo === 'delivery' && checkoutZone && checkoutZone !== -1) ? ZONES[checkoutZone.i].name : null;
-    db.from('orders').insert({
+    return db.from('orders').insert({
       customer_name: CHECKOUT.nombre,
       phone: CHECKOUT.telefono,
       tipo: CHECKOUT.tipo,
@@ -896,9 +917,10 @@
       items: itemLines,
       total: total,
       status: 'nuevos'
-    }).then(function (res) {
-      if (res.error && window.console) console.error('No se pudo guardar el pedido real', res.error);
-    });
+    }).select('daily_seq').single().then(function (res) {
+      if (res.error) { if (window.console) console.error('No se pudo guardar el pedido real', res.error); return null; }
+      return res.data ? res.data.daily_seq : null;
+    }).catch(function () { return null; });
   }
 
   function markField(inputId, errId, ok) {
@@ -924,13 +946,21 @@
     }
 
     var total = cartSubtotal() + deliveryCost();
-    var seq = nextOrderSeq();
     var code = randOrderCode();
     var fecha = argDateStr(new Date());
-    var msg = buildOrderMessage(seq, code, fecha, total);
 
-    saveRealOrder(total);
-    window.open(waText(msg), '_blank', 'noopener');
+    /* Abrimos la pestaña YA, en el mismo tick del click (si no, el navegador
+       la trata como pop-up no pedido por el usuario y la bloquea) y recién
+       cuando sabemos el número de pedido real la mandamos a wa.me. */
+    var waWin = window.open('', '_blank', 'noopener');
+
+    saveRealOrder(total).then(function (dailySeq) {
+      var seq = dailySeq != null ? dailySeq : nextOrderSeq();
+      var msg = buildOrderMessage(seq, code, fecha, total);
+      var url = waText(msg);
+      if (waWin && !waWin.closed) waWin.location.href = url;
+      else window.open(url, '_blank', 'noopener');
+    });
 
     CART = [];
     saveCart();
@@ -973,8 +1003,8 @@
     if (e.target.closest('[data-modal-photo-next]')) { MODAL.photoIndex = (MODAL.photoIndex || 0) + 1; renderModal(); return; }
     var photoDot = e.target.closest('[data-modal-photo-dot]');
     if (photoDot) { MODAL.photoIndex = +photoDot.getAttribute('data-modal-photo-dot'); renderModal(); return; }
-    if (e.target.closest('[data-modal-qty-inc]')) { MODAL.qty++; renderModal(); return; }
-    if (e.target.closest('[data-modal-qty-dec]')) { if (MODAL.qty > 1) MODAL.qty--; renderModal(); return; }
+    if (e.target.closest('[data-modal-qty-inc]')) { MODAL.qty++; updateModalQtyUi(); return; }
+    if (e.target.closest('[data-modal-qty-dec]')) { if (MODAL.qty > 1) MODAL.qty--; updateModalQtyUi(); return; }
     var fInc = e.target.closest('[data-fixed-inc]');
     if (fInc) {
       var gi1 = fInc.getAttribute('data-gi'), name1 = fInc.getAttribute('data-name');
