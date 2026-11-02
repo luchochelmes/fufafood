@@ -79,6 +79,21 @@ create policy "public puede borrar pedidos" on orders
 
 -- ============================================================
 -- 3) Realtime: para que los cambios se vean en vivo sin recargar
+--    (a prueba de repetición: si ya estaban agregadas, no falla)
 -- ============================================================
-alter publication supabase_realtime add table app_settings;
-alter publication supabase_realtime add table orders;
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'app_settings'
+  ) then
+    alter publication supabase_realtime add table app_settings;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'orders'
+  ) then
+    alter publication supabase_realtime add table orders;
+  end if;
+end $$;

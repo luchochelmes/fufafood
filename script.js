@@ -1138,6 +1138,7 @@
     if (short) short.textContent = st.nav;
     if (hero) hero.textContent = st.text;
     if (menu) menu.innerHTML = escapeHtml(st.text) + '<br>Mariano Fragueiro 2706, esq. Francisco de Quevedo, Alta Córdoba';
+    renderHeroStatusLines();
   }
 
   /* ===================== promo de hoy (la activa el local desde el panel) =====================
@@ -1410,6 +1411,61 @@
     renderZoneResult();
   }
 
+  /* ===================== hero: paneles Retirar / Delivery =====================
+     Antes el hero mostraba una franja fija con "Dónde / Cuándo / Delivery".
+     Ahora cada botón abre un panel propio: Retirar muestra dirección y horario
+     con un link directo a la carta; Delivery muestra el horario y el mismo
+     buscador de zona de la sección Delivery (comparte la variable currentZone,
+     así si encuentra la zona, el checkout ya la trae precargada). */
+  function renderHeroStatusLines() {
+    var st = getStatus();
+    var r = document.getElementById('hero-panel-retiro-status');
+    var d = document.getElementById('hero-panel-delivery-status');
+    if (r) r.textContent = 'Cuándo · ' + st.text;
+    if (d) d.textContent = 'Cuándo · ' + st.text;
+  }
+
+  function showHeroPanel(which) {
+    ['retiro', 'delivery'].forEach(function (k) {
+      var el = document.getElementById('hero-panel-' + k);
+      if (el) el.hidden = (k !== which);
+    });
+    renderHeroStatusLines();
+  }
+
+  function renderHeroZoneResult() {
+    var el = document.getElementById('hero-zone-result');
+    if (!el) return;
+    if (!currentZone) { el.innerHTML = ''; return; }
+    if (currentZone === -1) {
+      el.innerHTML = '<div class="zone-result zone-result--no"><strong>Todavía no llegamos a tu zona.</strong> Pero podés retirar tu pedido en Mariano Fragueiro 2706, esq. Francisco de Quevedo.</div>';
+      return;
+    }
+    var z = ZONES[currentZone.i];
+    var line = currentZone.b + ': envío ' + fmt(z.cost) + ' · ' + z.time;
+    el.innerHTML =
+      '<div class="zone-result zone-result--yes">' +
+      '<span class="ok"><span class="ok-dot"></span>Sí, llegamos</span>' +
+      '<span>' + escapeHtml(line) + '</span>' +
+      '<a href="/carta" data-order-type="delivery">Armá tu pedido</a>' +
+      '</div>';
+  }
+
+  function checkHeroZone(e) {
+    if (e) e.preventDefault();
+    var input = document.getElementById('hero-barrio-input');
+    currentZone = findZone(input ? input.value : '');
+    renderHeroZoneResult();
+  }
+
+  function initHeroPanels() {
+    document.querySelectorAll('[data-hero-panel]').forEach(function (btn) {
+      btn.addEventListener('click', function () { showHeroPanel(btn.getAttribute('data-hero-panel')); });
+    });
+    var form = document.getElementById('hero-zone-form');
+    if (form) form.addEventListener('submit', checkHeroZone);
+  }
+
   /* ===================== event form ===================== */
   function initEventForm() {
     var form = document.getElementById('event-form');
@@ -1590,17 +1646,6 @@
     document.querySelectorAll('a[href="https://pedix.app/fufafood"]').forEach(function (a) { a.href = waOrder; });
   }
 
-  function applyHeroDeliveryFrom() {
-    var el = document.getElementById('hero-delivery-from');
-    if (!el) return;
-    if (ZONES.length) {
-      var minCost = ZONES.reduce(function (m, z) { return Math.min(m, z.cost); }, ZONES[0].cost);
-      el.textContent = 'envío desde ' + fmt(minCost);
-    } else {
-      el.textContent = 'consultá el envío';
-    }
-  }
-
   function applyServicesVisibility() {
     var services = ADMIN.services || {};
     var localSec = document.getElementById('local');
@@ -1703,7 +1748,6 @@
 
   function applyAdminEffects() {
     applyWaLinks();
-    applyHeroDeliveryFrom();
     applyServicesVisibility();
     applyReceivingState();
     renderStatus();
@@ -1781,6 +1825,7 @@
     initEventForm();
 
     initCartaSearch();
+    initHeroPanels();
 
     document.getElementById('menu-open-btn').addEventListener('click', openMenu);
     document.getElementById('menu-close-btn').addEventListener('click', closeMenu);
