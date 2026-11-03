@@ -57,6 +57,7 @@
       productOverrides: {},
       catOn: {},
       customProducts: {},
+      topPicks: null,
       zones: defaultZones(),
       hours: defaultHours(),
       estado: 'auto',
@@ -766,6 +767,56 @@
     renderCatTabs();
     renderCatEditor();
     initPctPanel();
+    renderTopPicksEditor();
+  }
+
+  function allRealProducts() {
+    var out = [];
+    (CARTA_DATA || []).forEach(function (c) {
+      c.products.forEach(function (p) { out.push({ cat: c.slug, catName: c.name, name: p.name, label: effectiveName(p) }); });
+    });
+    return out;
+  }
+
+  function renderTopPicksEditor() {
+    var wrap = byId('top-picks-editor');
+    if (!wrap || !CARTA_DATA) return;
+    var picks = effectiveTopPicks();
+    var products = allRealProducts();
+    var byCat = {};
+    products.forEach(function (p) {
+      if (!byCat[p.cat]) byCat[p.cat] = { catName: p.catName, items: [] };
+      byCat[p.cat].items.push(p);
+    });
+    wrap.innerHTML = picks.map(function (pick, i) {
+      var optgroups = Object.keys(byCat).map(function (catSlug) {
+        var group = byCat[catSlug];
+        var opts = group.items.map(function (p) {
+          var val = p.cat + '::' + p.name;
+          var sel = (p.cat === pick.cat && p.name === pick.name) ? ' selected' : '';
+          return '<option value="' + escapeHtml(val) + '"' + sel + '>' + escapeHtml(p.label) + '</option>';
+        }).join('');
+        return '<optgroup label="' + escapeHtml(group.catName) + '">' + opts + '</optgroup>';
+      }).join('');
+      return (
+        '<label class="adm-field">' +
+        '<span>Más pedido #' + (i + 1) + '</span>' +
+        '<select data-top-pick-idx="' + i + '">' + optgroups + '</select>' +
+        '</label>'
+      );
+    }).join('');
+
+    wrap.querySelectorAll('[data-top-pick-idx]').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        var idx = +sel.getAttribute('data-top-pick-idx');
+        var parts = sel.value.split('::');
+        var current = effectiveTopPicks().slice();
+        current[idx] = { cat: parts[0], name: parts[1] };
+        state.topPicks = current;
+        save();
+        renderFotos();
+      });
+    });
   }
 
   /* ============================================================
@@ -889,12 +940,16 @@
   /* ============================================================
      FOTOS
      ============================================================ */
-  var TOP_PICKS = [
-    { cat: 'hamburguesas', name: 'BIG FUFA', label: 'Big Fufa' },
-    { cat: 'lomitos', name: 'ESPECIAL', label: 'Especial de lomitos' },
-    { cat: 'pizzas', name: 'ESPECIAL', label: 'Especial de pizzas' },
-    { cat: 'empanadas', name: 'DOCENA EMPANADAS MIXTAS', label: 'Docena mixta de empanadas' }
+  var DEFAULT_TOP_PICKS = [
+    { cat: 'hamburguesas', name: 'BIG FUFA' },
+    { cat: 'lomitos', name: 'ESPECIAL' },
+    { cat: 'pizzas', name: 'ESPECIAL' },
+    { cat: 'empanadas', name: 'DOCENA EMPANADAS MIXTAS' }
   ];
+
+  function effectiveTopPicks() {
+    return (state.topPicks && state.topPicks.length === 4) ? state.topPicks : DEFAULT_TOP_PICKS;
+  }
 
   function findRealProduct(catSlug, name) {
     var c = catBySlug(catSlug);
@@ -934,10 +989,10 @@
       return fotoSlotHtml('cat-' + c.slug, c.name, cur, null);
     }).join('');
 
-    var topSlots = TOP_PICKS.map(function (t) {
+    var topSlots = effectiveTopPicks().map(function (t) {
       var p = findRealProduct(t.cat, t.name);
       var cur = p ? effectiveThumb(p) : '';
-      return fotoSlotHtml('top::' + (p ? p.id : t.cat + '-' + t.name), t.label, cur, null);
+      return fotoSlotHtml('top::' + (p ? p.id : t.cat + '-' + t.name), p ? effectiveName(p) : t.name, cur, null);
     }).join('');
 
     wrap.innerHTML =

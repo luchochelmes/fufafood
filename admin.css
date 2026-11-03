@@ -86,6 +86,7 @@ a{color:inherit}
 .adm-field input,.adm-field select{padding:10px 12px;border-radius:6px;border:1.5px solid rgba(14,14,14,.25);background:#fff;font-weight:400;color:var(--ink)}
 .adm-panel--dark .adm-field input,.adm-panel--dark .adm-field select{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff}
 .adm-field-row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+.adm-top-picks-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
 .adm-check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500}
 
 .adm-panel{background:var(--beige);border-radius:10px;padding:20px;margin:20px 0}

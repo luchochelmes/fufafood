@@ -1364,7 +1364,8 @@
   function renderHomeTop() {
     var el = document.getElementById('home-top-grid');
     if (!CARTA_DATA) { el.innerHTML = '<p class="carta-loading">Cargando la carta…</p>'; return; }
-    var picks = TOP_PICKS.map(function (pick) {
+    var activePicks = (ADMIN.topPicks && ADMIN.topPicks.length === 4) ? ADMIN.topPicks : TOP_PICKS;
+    var picks = activePicks.map(function (pick) {
       var p = findProduct(pick.cat, pick.name);
       var cat = CARTA_DATA.filter(function (c) { return c.slug === pick.cat; })[0];
       return p ? { cat: pick.cat, catName: cat ? cat.name : '', p: p } : null;
