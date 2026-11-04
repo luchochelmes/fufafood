@@ -101,7 +101,7 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .section-dark{background:#0E0E0E;color:#FFFFFF}
 .section-dark a{color:inherit}
 .section-dark a:hover{color:#FFD400}
-.section-yellow{background:#FFD400}
+.section-yellow{background:#FFD400;color:#0E0E0E}
 #local, #eventos{scroll-margin-top:56px}
 @media (min-width:1024px){#local,#eventos{scroll-margin-top:64px}}
 
@@ -295,7 +295,7 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 
 .dl-grid{margin:0;display:grid;grid-template-columns:minmax(0,1fr);gap:28px 48px}
 @media (min-width:640px){.dl-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.dl-grid dt{font-weight:700;font-size:15px;color:#FFD400}
+.dl-grid dt{font-weight:700;font-size:15px;color:#0E0E0E}
 .dl-grid dd{margin:6px 0 0;font-size:17px;line-height:1.5}
 
 /* ===== Footer ===== */

@@ -43,13 +43,13 @@
   function defaultHours() {
     // índice 0=Lunes .. 6=Domingo (coincide con (d.getDay()+6)%7)
     return [
-      { open: false, from: '19:00', to: '00:00' }, // Lunes: cerrado
-      { open: true, from: '19:00', to: '00:00' },  // Martes
-      { open: true, from: '19:00', to: '00:00' },  // Miércoles
-      { open: true, from: '19:00', to: '00:00' },  // Jueves
-      { open: true, from: '19:00', to: '00:00' },  // Viernes
-      { open: true, from: '19:00', to: '00:00' },  // Sábado
-      { open: true, from: '19:00', to: '00:00' }   // Domingo
+      { open: false, from: '20:00', to: '00:00' }, // Lunes: cerrado
+      { open: true, from: '20:00', to: '00:00' },  // Martes
+      { open: true, from: '20:00', to: '00:00' },  // Miércoles
+      { open: true, from: '20:00', to: '00:00' },  // Jueves
+      { open: true, from: '20:00', to: '00:30' },  // Viernes
+      { open: true, from: '20:00', to: '00:30' },  // Sábado
+      { open: true, from: '20:00', to: '00:00' }   // Domingo
     ];
   }
   function defaultState() {

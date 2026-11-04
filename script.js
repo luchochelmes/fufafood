@@ -83,24 +83,42 @@
   }
   recomputeZones();
 
-  var HOURS_DEFAULT = { 0: [19, 24], 2: [19, 24], 3: [19, 24], 4: [19, 24], 5: [19, 24], 6: [19, 24] };
+  /* HOURS[jsDay] = {from, to} en minutos desde las 00:00 de jsDay (getDay():
+     Domingo=0..Sábado=6). Si el cierre cae en la madrugada (ej. 20:00 a
+     00:30), "to" queda > 1440 (= 24:30) para poder compararlo contra los
+     minutos del día siguiente sin perder los minutos (antes se guardaba
+     solo la hora entera y "00:30" se truncaba a "0"). */
+  function hhmmToMin(hhmm) {
+    var parts = String(hhmm).split(':');
+    var h = parseInt(parts[0], 10), m = parseInt(parts[1], 10) || 0;
+    return isNaN(h) ? null : h * 60 + m;
+  }
+  var HOURS_DEFAULT_RAW = [
+    { open: false, from: '20:00', to: '00:00' },
+    { open: true, from: '20:00', to: '00:00' },
+    { open: true, from: '20:00', to: '00:00' },
+    { open: true, from: '20:00', to: '00:00' },
+    { open: true, from: '20:00', to: '00:30' },
+    { open: true, from: '20:00', to: '00:30' },
+    { open: true, from: '20:00', to: '00:00' }
+  ];
   /* ADMIN.hours (si existe) viene con índice Lunes=0..Domingo=6, como lo usa
      el panel. getDay() nativo usa Domingo=0..Sábado=6, así que convertimos
      con jsIndex = (adminIndex + 1) % 7 antes de usarlo acá. */
   var HOURS;
   function recomputeHours() {
-    if (!ADMIN.hours || !ADMIN.hours.length) { HOURS = HOURS_DEFAULT; return; }
+    var raw = (ADMIN.hours && ADMIN.hours.length === 7) ? ADMIN.hours : HOURS_DEFAULT_RAW;
     var out = {};
-    ADMIN.hours.forEach(function (day, adminIdx) {
+    raw.forEach(function (day, adminIdx) {
       if (!day || !day.open) return;
       var jsIdx = (adminIdx + 1) % 7;
-      var from = parseInt(day.from, 10);
-      var to = parseInt(day.to, 10);
-      if (isNaN(from) || isNaN(to)) return;
-      if (to === 0) to = 24;
-      out[jsIdx] = [from, to];
+      var from = hhmmToMin(day.from);
+      var to = hhmmToMin(day.to);
+      if (from === null || to === null) return;
+      if (to <= from) to += 24 * 60;
+      out[jsIdx] = { from: from, to: to };
     });
-    HOURS = Object.keys(out).length ? out : HOURS_DEFAULT;
+    HOURS = out;
   }
   recomputeHours();
   var DAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -110,20 +128,11 @@
      una sola línea, tal como vienen cargados en el panel (Lunes=0..Domingo=6). */
   var DAY_NAMES_MON = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
   function fmtHourPart(hhmm) {
-    if (hhmm === '00:00') return 'medianoche';
-    var h = parseInt(hhmm, 10);
-    return isNaN(h) ? hhmm : String(h);
+    var min = hhmmToMin(hhmm);
+    return min === null ? hhmm : fmtClockMin(min);
   }
   function hoursSummaryRows() {
-    var days = (ADMIN.hours && ADMIN.hours.length === 7) ? ADMIN.hours : [
-      { open: false, from: '19:00', to: '00:00' },
-      { open: true, from: '19:00', to: '00:00' },
-      { open: true, from: '19:00', to: '00:00' },
-      { open: true, from: '19:00', to: '00:00' },
-      { open: true, from: '19:00', to: '00:00' },
-      { open: true, from: '19:00', to: '00:00' },
-      { open: true, from: '19:00', to: '00:00' }
-    ];
+    var days = (ADMIN.hours && ADMIN.hours.length === 7) ? ADMIN.hours : HOURS_DEFAULT_RAW;
     var rows = [];
     var i = 0;
     while (i < 7) {
@@ -1261,23 +1270,38 @@
   function navPx() { return isDesk() ? 64 : 56; }
 
   /* ===================== status ===================== */
-  function fmtHour24(h) { return (h === 24 ? 0 : h) + ':00'; }
+  /* "min" son minutos desde las 00:00, puede venir ya pasado de 1440 (ej.
+     1470 = 00:30 del día siguiente) — por eso el módulo antes de formatear. */
+  function fmtClockMin(min) {
+    var m = ((min % 1440) + 1440) % 1440;
+    var h = Math.floor(m / 60), mm = m % 60;
+    if (h === 0 && mm === 0) return 'medianoche';
+    return h + (mm ? ':' + (mm < 10 ? '0' + mm : mm) : '');
+  }
   function getStatus() {
     /* Estado forzado desde el panel (feriados, etc.), ignora el horario. */
     if (ADMIN.estado === 'abierto') return { open: true, text: 'Abierto', nav: 'Abierto' };
     if (ADMIN.estado === 'cerrado') return { open: false, text: 'Cerrado', nav: 'Cerrado' };
-    var d = new Date(), day = d.getDay(), h = d.getHours();
-    var open = !!HOURS[day] && h >= HOURS[day][0] && h < HOURS[day][1];
-    if (open) return { open: true, text: 'Abierto hasta las ' + fmtHour24(HOURS[day][1]), nav: 'Abierto' };
+    var d = new Date(), day = d.getDay(), nowMin = d.getHours() * 60 + d.getMinutes();
+    var today = HOURS[day];
+    var yesterday = HOURS[(day + 6) % 7];
+    /* Abierto hoy dentro de su propio rango, o todavía dentro de la cola
+       nocturna de ayer (ej. ayer cerró 00:30, son las 00:15 de hoy). */
+    if (today && nowMin >= today.from && nowMin < today.to) {
+      return { open: true, text: 'Abierto hasta las ' + fmtClockMin(today.to), nav: 'Abierto' };
+    }
+    if (yesterday && yesterday.to > 1440 && nowMin < (yesterday.to - 1440)) {
+      return { open: true, text: 'Abierto hasta las ' + fmtClockMin(yesterday.to), nav: 'Abierto' };
+    }
     var next = '';
-    var nextOpenHour = HOURS[day] ? HOURS[day][0] : null;
-    if (!(HOURS[day] && h < HOURS[day][0])) {
+    var nextOpenMin = today ? today.from : null;
+    if (!(today && nowMin < today.from)) {
       for (var i = 1; i <= 7; i++) {
         var nd = (day + i) % 7;
-        if (HOURS[nd]) { next = i === 1 ? 'mañana ' : 'el ' + DAYS[nd] + ' '; nextOpenHour = HOURS[nd][0]; break; }
+        if (HOURS[nd]) { next = i === 1 ? 'mañana ' : 'el ' + DAYS[nd] + ' '; nextOpenMin = HOURS[nd].from; break; }
       }
     }
-    return { open: false, text: 'Cerrado, abrimos ' + next + 'a las ' + fmtHour24(nextOpenHour), nav: 'Cerrado' };
+    return { open: false, text: 'Cerrado, abrimos ' + next + 'a las ' + fmtClockMin(nextOpenMin), nav: 'Cerrado' };
   }
 
   function renderStatus() {
@@ -1658,7 +1682,7 @@
     var el = document.getElementById('zone-result');
     if (!currentZone) { el.innerHTML = ''; return; }
     if (currentZone === -1) {
-      el.innerHTML = '<div class="zone-result zone-result--no"><strong>Todavía no llegamos a tu zona.</strong> Todavía no llegamos hasta tu casa, pero te esperamos en el local. También podés retirar tu pedido en Fragueiro y Quevedo.</div>';
+      el.innerHTML = '<div class="zone-result zone-result--no"><strong>Todavía no llegamos a tu zona.</strong> Todavía no llegamos hasta tu casa, pero te esperamos en el local. También podés retirar tu pedido en Fragueiro y Quevedo, o pedirnos por PedidosYa o Mercado Libre.</div>';
       return;
     }
     var z = ZONES[currentZone.i];
@@ -1710,7 +1734,7 @@
     if (!el) return;
     if (!currentZone) { el.innerHTML = ''; return; }
     if (currentZone === -1) {
-      el.innerHTML = '<div class="zone-result zone-result--no"><strong>Todavía no llegamos a tu zona.</strong> Pero podés retirar tu pedido en Mariano Fragueiro 2706, esq. Francisco de Quevedo.</div>';
+      el.innerHTML = '<div class="zone-result zone-result--no"><strong>Todavía no llegamos a tu zona.</strong> Pero podés retirar tu pedido en Mariano Fragueiro 2706, esq. Francisco de Quevedo, o pedirnos por PedidosYa o Mercado Libre.</div>';
       return;
     }
     var z = ZONES[currentZone.i];
