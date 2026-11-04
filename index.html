@@ -27,7 +27,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Work+Sans:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261103h">
+<link rel="stylesheet" href="styles.css?v=20261103i">
 </head>
 <body>
 
@@ -89,7 +89,6 @@
 
   <section class="hero-tipo" id="hero-section">
     <div class="wrap hero-tipo__inner">
-      <p class="status-line"><span class="status-dot" id="status-dot-hero"></span><span id="status-text-hero"></span></p>
       <h1 class="hero-tipo__title visually-hidden" id="hero-title">Donde el hambre se rinde.</h1>
       <p class="hero-tipo__desc visually-hidden" id="hero-desc">Hamburguesas, lomitos, pizzas y empanadas en Alta Córdoba. Comé en el local, pedí delivery o alquilá el espacio para tu evento.</p>
       <div class="hero-tipo__btns hero-tipo__btns--standalone">
@@ -125,7 +124,7 @@
       <div>
         <h2 class="h2 h2--yellow" data-reveal="0">Comé en el local</h2>
         <p class="lead" data-reveal="60">Estamos en Mariano Fragueiro 2706, esquina Francisco de Quevedo, en Alta Córdoba. Las mesas van por orden de llegada y los tragos solo se sirven acá.</p>
-        <dl class="dl-hours" data-reveal="120">
+        <dl class="dl-hours" data-reveal="120" id="local-hours-dl">
           <dt>Martes a domingo</dt><dd>De 19 a medianoche</dd>
           <dt>Lunes</dt><dd>Cerrado</dd>
         </dl>
@@ -178,7 +177,7 @@
             <option>Cumpleaños</option><option>Juntada</option><option>After office</option><option>Evento de empresa</option><option>Otro</option>
           </select>
         </label>
-        <button type="submit" class="btn btn-black btn-lift">Mandar por WhatsApp</button>
+        <button type="submit" class="btn btn-yellow btn-lift">Mandar por WhatsApp</button>
       </form>
     </div>
   </section>
@@ -318,7 +317,7 @@
     <p class="footer__tag">Donde el hambre se rinde.</p>
     <div class="footer__grid">
       <p>Mariano Fragueiro 2706, esq. Francisco de Quevedo<br>Alta Córdoba, Córdoba</p>
-      <p>Martes a domingo, de 19 a medianoche<br>Lunes cerrado</p>
+      <p id="footer-hours">Martes a Domingo · De 19 a medianoche<br>Lunes · Cerrado</p>
       <p><a href="#" id="wa-link-footer" target="_blank" rel="noopener">WhatsApp</a><br><a href="#" id="tel-link-footer">Llamar</a></p>
       <p><a href="https://instagram.com/fufa.food" target="_blank" rel="noopener">Instagram @fufa.food</a><br><a href="https://tiktok.com/@fufafood" target="_blank" rel="noopener">TikTok @fufafood</a></p>
     </div>
@@ -358,6 +357,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="supabase-client.js?v=20261102m"></script>
-<script src="script.js?v=20261103e"></script>
+<script src="script.js?v=20261103g"></script>
 </body>
 </html>

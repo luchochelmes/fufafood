@@ -44,6 +44,7 @@
     empanadas: { line1: 'Por unidad o por docena.', examples: 'Árabes, criollas, jamón y queso, pollo. Por unidad o docena.' },
     pizzas: { line1: 'Entera o media.', examples: 'Diez gustos, de la muzza a la de champiñones. Entera o media.' },
     frituras: { line1: 'Para acompañar o para pedir solas.', examples: 'Fritas solas, con huevo, con bacon y cheddar, y aros de cebolla.' },
+    extras: { line1: 'Sumale algo más a tu pedido.', examples: 'Pileta de cheddar y otros extras para acompañar.' },
     bebidas: { line1: 'Frías, como tienen que estar.', examples: 'Gaseosas, aguas y cervezas, en lata, botella o retornable.' },
     helados: { line1: 'Para cerrar.', examples: 'Palitos bombón, bombones suizo, escocés y Dubai, y tacitas combi.' },
     'tragos-solo-para-local': { line1: 'Vení a tomarlos acá.', soloLocal: true, examples: 'Fernet, gin, vodka, gancia, cinzano y vino, por medida o botella.' }
@@ -103,6 +104,60 @@
   }
   recomputeHours();
   var DAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+  /* Resumen de horarios en texto, para el footer y "Comé en el local".
+     Agrupa días consecutivos con el mismo horario (o ambos cerrados) en
+     una sola línea, tal como vienen cargados en el panel (Lunes=0..Domingo=6). */
+  var DAY_NAMES_MON = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+  function fmtHourPart(hhmm) {
+    if (hhmm === '00:00') return 'medianoche';
+    var h = parseInt(hhmm, 10);
+    return isNaN(h) ? hhmm : String(h);
+  }
+  function hoursSummaryRows() {
+    var days = (ADMIN.hours && ADMIN.hours.length === 7) ? ADMIN.hours : [
+      { open: false, from: '19:00', to: '00:00' },
+      { open: true, from: '19:00', to: '00:00' },
+      { open: true, from: '19:00', to: '00:00' },
+      { open: true, from: '19:00', to: '00:00' },
+      { open: true, from: '19:00', to: '00:00' },
+      { open: true, from: '19:00', to: '00:00' },
+      { open: true, from: '19:00', to: '00:00' }
+    ];
+    var rows = [];
+    var i = 0;
+    while (i < 7) {
+      var d = days[i] || { open: false };
+      var sig = d.open ? ('o:' + d.from + '-' + d.to) : 'c';
+      var j = i;
+      while (j + 1 < 7) {
+        var d2 = days[j + 1] || { open: false };
+        var sig2 = d2.open ? ('o:' + d2.from + '-' + d2.to) : 'c';
+        if (sig2 !== sig) break;
+        j++;
+      }
+      var label = (i === j) ? DAY_NAMES_MON[i] : (DAY_NAMES_MON[i] + ' a ' + DAY_NAMES_MON[j]);
+      rows.push({
+        day: label,
+        text: d.open ? ('De ' + fmtHourPart(d.from) + ' a ' + fmtHourPart(d.to)) : 'Cerrado'
+      });
+      i = j + 1;
+    }
+    return rows;
+  }
+  function applyHoursText() {
+    var rows = hoursSummaryRows();
+    var dl = document.getElementById('local-hours-dl');
+    if (dl) {
+      dl.innerHTML = rows.map(function (r) {
+        return '<dt>' + escapeHtml(r.day) + '</dt><dd>' + escapeHtml(r.text) + '</dd>';
+      }).join('');
+    }
+    var footer = document.getElementById('footer-hours');
+    if (footer) {
+      footer.innerHTML = rows.map(function (r) { return escapeHtml(r.day + ' · ' + r.text); }).join('<br>');
+    }
+  }
 
   /* ===================== helpers ===================== */
   function escapeHtml(s) {
@@ -564,12 +619,12 @@
       var isFree = regular.length && regular.every(function (it) { return !it.price; });
       var title = o.name || 'Opciones';
       var counter = isFree ? ' <span class="opt-group__hint is-ok">(sin cargo' + (freeCount ? ' · elegiste ' + freeCount : '') + ')</span>' : '';
-      var out = (
+      var out = regular.length ? (
         '<div class="opt-group">' +
         '<p class="opt-group__title">' + escapeHtml(title) + counter + '</p>' +
         '<div class="opt-list">' + regular.map(rowHtml).join('') + '</div>' +
         '</div>'
-      );
+      ) : '';
       if (mods.length) {
         out += (
           '<div class="opt-group">' +
@@ -1206,21 +1261,23 @@
   function navPx() { return isDesk() ? 64 : 56; }
 
   /* ===================== status ===================== */
+  function fmtHour24(h) { return (h === 24 ? 0 : h) + ':00'; }
   function getStatus() {
     /* Estado forzado desde el panel (feriados, etc.), ignora el horario. */
-    if (ADMIN.estado === 'abierto') return { open: true, text: 'Abierto hasta las 00:00', nav: 'Abierto' };
+    if (ADMIN.estado === 'abierto') return { open: true, text: 'Abierto', nav: 'Abierto' };
     if (ADMIN.estado === 'cerrado') return { open: false, text: 'Cerrado', nav: 'Cerrado' };
     var d = new Date(), day = d.getDay(), h = d.getHours();
     var open = !!HOURS[day] && h >= HOURS[day][0] && h < HOURS[day][1];
-    if (open) return { open: true, text: 'Abierto hasta las 00:00', nav: 'Abierto' };
+    if (open) return { open: true, text: 'Abierto hasta las ' + fmtHour24(HOURS[day][1]), nav: 'Abierto' };
     var next = '';
-    if (!(HOURS[day] && h < 19)) {
+    var nextOpenHour = HOURS[day] ? HOURS[day][0] : null;
+    if (!(HOURS[day] && h < HOURS[day][0])) {
       for (var i = 1; i <= 7; i++) {
         var nd = (day + i) % 7;
-        if (HOURS[nd]) { next = i === 1 ? 'mañana ' : 'el ' + DAYS[nd] + ' '; break; }
+        if (HOURS[nd]) { next = i === 1 ? 'mañana ' : 'el ' + DAYS[nd] + ' '; nextOpenHour = HOURS[nd][0]; break; }
       }
     }
-    return { open: false, text: 'Cerrado, abrimos ' + next + 'a las 19:00', nav: 'Cerrado' };
+    return { open: false, text: 'Cerrado, abrimos ' + next + 'a las ' + fmtHour24(nextOpenHour), nav: 'Cerrado' };
   }
 
   function renderStatus() {
@@ -1427,7 +1484,6 @@
       var body = groupOrder.map(function (key) {
         var title = key ? '<h3 class="cat-group__title">' + escapeHtml(key) + '</h3>' : '';
         var items = groupMap[key].map(function (p) {
-          var desc = p.desc ? '<div class="cat-items__desc">' + escapeHtml(p.desc) + '</div>' : '';
           var addControl = hasOptions(p)
             ? '<button type="button" class="btn-add" data-add-product data-cat="' + escapeHtml(c.slug) + '" data-pid="' + escapeHtml(p.id) + '"' + (p.soldOut ? ' disabled' : '') + '>Agregar al pedido</button>'
             : (
@@ -1443,7 +1499,6 @@
             '<div class="cat-items__main">' +
             '<div class="cat-items__toprow"><div class="cat-items__name">' + escapeHtml(p.name) + '</div>' +
             '<span class="cat-items__price">' + priceHtml(p.price, p.priceDiscount) + '</span></div>' +
-            desc +
             '<div class="cat-items__add">' + addControl + '</div>' +
             '</div></li>'
           );
@@ -1992,6 +2047,7 @@
     applyServicesVisibility();
     applyReceivingState();
     renderStatus();
+    applyHoursText();
     applySectionPhotos();
     refreshCarta();
   }

@@ -245,6 +245,7 @@
       id: row.id,
       dailySeq: row.daily_seq,
       name: row.customer_name,
+      phone: row.phone || '',
       tipo: row.tipo,
       addr: row.address || '',
       items: Array.isArray(row.items) ? row.items : [],
@@ -349,6 +350,7 @@
       '<ul class="adm-order-detail-items">' + items + '</ul>' +
       '<p>' + escapeHtml(o.pay) + '</p>' +
       '<p style="font-size:20px;font-weight:700">' + fmt(o.total) + '</p>' +
+      '<button type="button" class="adm-btn adm-btn--outline" data-role="print-order">Imprimir comanda</button>' +
       '</div></div>'
     );
   }
@@ -360,8 +362,38 @@
     root.innerHTML = orderDetailHtml(o);
     var closeBtn = root.querySelector('[data-role="order-modal-close"]');
     if (closeBtn) closeBtn.addEventListener('click', closeOrderDetail);
+    var printBtn = root.querySelector('[data-role="print-order"]');
+    if (printBtn) printBtn.addEventListener('click', function () { printOrder(o); });
     var overlay = byId('adm-order-modal-overlay');
     if (overlay) overlay.addEventListener('click', function (e) { if (e.target === overlay) closeOrderDetail(); });
+  }
+
+  /* ----- comanda impresa -----
+     Se arma en #print-ticket-root (fuera de la vista normal) y se imprime con
+     window.print(); el CSS (@media print) oculta todo lo demás de la pagina,
+     asi en la impresora sale solo el ticket. Pensado para impresoras termicas
+     chicas de cocina/mostrador, de ahi el ancho angosto y la tipografia simple. */
+  function printOrder(o) {
+    var root = byId('print-ticket-root');
+    if (!root) return;
+    var items = o.items.map(function (it) { return '<li>' + escapeHtml(it) + '</li>'; }).join('');
+    var fecha = o.createdAt ? new Date(o.createdAt).toLocaleString('es-AR') : '';
+    root.innerHTML =
+      '<div class="print-ticket">' +
+      '<h1>FUFA FOOD</h1>' +
+      '<p class="print-ticket__num">#' + (o.dailySeq != null ? o.dailySeq : o.id) + '</p>' +
+      '<p>' + fecha + '</p>' +
+      '<hr>' +
+      '<p><strong>' + escapeHtml(o.name) + '</strong>' + (o.phone ? ' · ' + escapeHtml(o.phone) : '') + '</p>' +
+      '<p>' + escapeHtml(o.tipo === 'delivery' ? 'Delivery' : (o.tipo === 'retiro' ? 'Retiro en el local' : 'Mesa')) + '</p>' +
+      (o.addr ? '<p>' + escapeHtml(o.addr) + '</p>' : '') +
+      '<hr>' +
+      '<ul>' + items + '</ul>' +
+      '<hr>' +
+      '<p>Pago: ' + escapeHtml(o.pay) + '</p>' +
+      '<p class="print-ticket__total">Total: ' + fmt(o.total) + '</p>' +
+      '</div>';
+    window.print();
   }
   function closeOrderDetail() {
     var root = byId('order-modal-root');

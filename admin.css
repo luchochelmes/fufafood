@@ -215,3 +215,23 @@ a{color:inherit}
 .adm-hour-row__day{width:90px;font-weight:700;font-size:14px;flex:none}
 .adm-hour-row input[type="time"]{padding:7px 10px;border-radius:6px;border:1.5px solid rgba(14,14,14,.2)}
 .adm-hour-row__closed{font-size:13px;opacity:.6}
+
+/* ===== Comanda impresa =====
+   #print-ticket-root esta vacio y oculto en pantalla; printOrder() (admin.js)
+   lo llena justo antes de window.print(). @media print da vuelta la
+   visibilidad: se esconde todo lo demas del panel y se muestra solo el
+   ticket, pensado para impresoras termicas angostas de cocina/mostrador. */
+#print-ticket-root{display:none}
+@media print{
+  body *{visibility:hidden}
+  #print-ticket-root, #print-ticket-root *{visibility:visible}
+  #print-ticket-root{display:block;position:absolute;top:0;left:0;width:100%}
+  .print-ticket{width:280px;margin:0 auto;font-family:'Work Sans',monospace,sans-serif;color:#000;font-size:13px}
+  .print-ticket h1{font-size:18px;text-align:center;margin:0 0 4px}
+  .print-ticket__num{text-align:center;font-size:22px;font-weight:700;margin:0 0 4px}
+  .print-ticket p{margin:4px 0}
+  .print-ticket hr{border:none;border-top:1px dashed #000;margin:8px 0}
+  .print-ticket ul{margin:0;padding-left:16px}
+  .print-ticket li{margin:2px 0}
+  .print-ticket__total{font-size:16px;font-weight:700}
+}
