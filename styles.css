@@ -38,6 +38,14 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .btn-outline-white:hover{color:#FFD400;border-color:#FFD400}
 .btn-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:36px}
 
+/* En mobile no hay :hover, así que los botones de relleno sólido pierden el
+   contorno que en desktop aparece al pasar el mouse. Se agrega un borde fijo
+   para que se noten igual de definidos sin depender del hover. */
+@media (max-width:1023px){
+  .btn-yellow{border:2px solid #0E0E0E}
+  .btn-black{border:2px solid #FFD400}
+}
+
 /* ===== Header ===== */
 #site-header{position:fixed;top:0;left:0;right:0;z-index:50;height:56px;background:#0E0E0E}
 @media (min-width:1024px){#site-header{height:64px}}
@@ -225,8 +233,8 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .cat-section[hidden],
 .cat-group[hidden],
 .cat-items li[hidden]{display:none}
-.cat-items__thumb{flex:none;width:104px;height:104px;border-radius:8px;overflow:hidden;background:#FFD400}
-@media (min-width:1024px){.cat-items__thumb{width:128px;height:128px}}
+.cat-items__thumb{flex:none;width:140px;height:140px;border-radius:8px;overflow:hidden;background:#FFD400}
+@media (min-width:1024px){.cat-items__thumb{width:172px;height:172px}}
 .cat-items__main{flex:1;min-width:0}
 .cat-items__toprow{display:flex;justify-content:space-between;align-items:baseline;gap:16px}
 .cat-items__name{font-family:Anton,Impact,sans-serif;font-size:21px;line-height:1.1;text-transform:uppercase}
