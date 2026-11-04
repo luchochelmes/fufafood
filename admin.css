@@ -135,6 +135,7 @@ a{color:inherit}
 .adm-order-detail-items{font-size:14px;line-height:1.6;margin:12px 0;padding-left:18px}
 .adm-card__pay{font-size:12px;opacity:.7}
 .adm-card__total{font-size:15px;font-weight:700}
+.adm-card__links{display:flex;gap:14px;align-items:center}
 .adm-card__view{align-self:flex-start;background:none;border:0;padding:0;font:600 13px 'Work Sans',sans-serif;text-decoration:underline;color:var(--ink);opacity:.75;cursor:pointer}
 .adm-card__view:hover{opacity:1}
 .adm-card__actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:4px}

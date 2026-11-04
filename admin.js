@@ -330,7 +330,10 @@
       '<ul class="adm-card__items">' + items + '</ul>' +
       '<div class="adm-card__pay">' + escapeHtml(o.pay) + '</div>' +
       '<div class="adm-card__total">' + fmt(o.total) + '</div>' +
+      '<div class="adm-card__links">' +
       '<button type="button" class="adm-card__view" data-view="' + o.id + '">Ver pedido</button>' +
+      '<button type="button" class="adm-card__view" data-print="' + o.id + '">Imprimir</button>' +
+      '</div>' +
       '<div class="adm-card__actions">' + btns + '</div>' +
       '</article>'
     );
@@ -415,6 +418,12 @@
     }).join('');
     board.querySelectorAll('[data-view]').forEach(function (btn) {
       btn.addEventListener('click', function () { openOrderDetail(+btn.getAttribute('data-view')); });
+    });
+    board.querySelectorAll('[data-print]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var o = orders.filter(function (x) { return x.id === +btn.getAttribute('data-print'); })[0];
+        if (o) printOrder(o);
+      });
     });
     board.querySelectorAll('[data-advance]').forEach(function (btn) {
       btn.addEventListener('click', function () {
