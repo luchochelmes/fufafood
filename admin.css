@@ -133,6 +133,10 @@ a{color:inherit}
 .adm-card__items{font-size:13px;margin:0;padding-left:16px}
 .adm-card__items li{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .adm-order-detail-items{font-size:14px;line-height:1.6;margin:12px 0;padding-left:18px}
+.order-group__header{font-weight:700;margin:12px 0 2px;font-size:14px}
+.order-line__topping-label{margin:4px 0 0;font-size:.85em;opacity:.75}
+.order-line__toppings{margin:0 0 4px 14px;font-size:.9em;opacity:.85}
+.order-line__note{margin:2px 0 4px 14px;font-style:italic;opacity:.8}
 .adm-card__pay{font-size:12px;opacity:.7}
 .adm-card__total{font-size:15px;font-weight:700}
 .adm-card__links{display:flex;gap:14px;align-items:center}
@@ -229,8 +233,6 @@ a{color:inherit}
   #print-ticket-root, #print-ticket-root *{visibility:visible}
   #print-ticket-root{display:block;position:absolute;top:0;left:0;width:100%}
   .print-ticket{width:280px;margin:0 auto;font-family:'Work Sans',monospace,sans-serif;color:#000;font-size:13px}
-  .print-ticket h1{font-size:18px;text-align:center;margin:0 0 4px}
-  .print-ticket__num{text-align:center;font-size:22px;font-weight:700;margin:0 0 4px}
   .print-ticket p{margin:4px 0}
   .print-ticket hr{border:none;border-top:1px dashed #000;margin:8px 0}
   .print-ticket ul{margin:0;padding-left:16px}

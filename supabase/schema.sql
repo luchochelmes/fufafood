@@ -127,6 +127,15 @@ create trigger trg_set_order_daily_seq
   for each row execute function set_order_daily_seq();
 
 -- ============================================================
+-- 2.2) Comanda imprimible: el panel necesita el código del pedido (el
+--      mismo que ya viaja en el mensaje de WhatsApp) y el "pago con"
+--      para poder imprimir la comanda con la misma estructura que ve
+--      el cliente.
+-- ============================================================
+alter table orders add column if not exists code text;
+alter table orders add column if not exists pago_con numeric;
+
+-- ============================================================
 -- 3) Realtime: para que los cambios se vean en vivo sin recargar
 --    (a prueba de repetición: si ya estaban agregadas, no falla)
 -- ============================================================

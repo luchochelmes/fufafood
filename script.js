@@ -953,6 +953,21 @@
   /* Construye el mensaje de WhatsApp replicando EXACTO el formato del ticket
      que imprimía Pedix (dos copias en el local). No reordenar ni "mejorar"
      el texto: cada línea en blanco es intencional. */
+  /* Agrupa el carrito por categoría/variante igual que el mensaje de
+     WhatsApp. Se usa tanto para armar ese texto como para guardar el
+     pedido en Supabase, así el panel puede imprimir la comanda con la
+     misma estructura exacta que ve el cliente. */
+  function buildOrderGroups() {
+    var order = [];
+    var map = {};
+    CART.forEach(function (l) {
+      var key = l.catSlug + '|' + l.group;
+      if (!map[key]) { map[key] = { header: l.group ? l.catName + ' (' + l.group + ')' : l.catName, items: [] }; order.push(key); }
+      map[key].items.push(l);
+    });
+    return order.map(function (key) { return map[key]; });
+  }
+
   function buildOrderMessage(seq, code, fecha, total) {
     var lines = [];
     lines.push('¡Hola! Te paso el resumen de mi pedido');
@@ -980,15 +995,7 @@
     lines.push('Mi pedido es');
     lines.push('');
 
-    var order = [];
-    var map = {};
-    CART.forEach(function (l) {
-      var key = l.catSlug + '|' + l.group;
-      if (!map[key]) { map[key] = { header: l.group ? l.catName + ' (' + l.group + ')' : l.catName, items: [] }; order.push(key); }
-      map[key].items.push(l);
-    });
-    order.forEach(function (key) {
-      var g = map[key];
+    buildOrderGroups().forEach(function (g) {
       lines.push(g.header);
       g.items.forEach(function (l) {
         lines.push(l.qty + 'x ' + l.name + ': ' + fmt(linePrice(l)));
@@ -1015,26 +1022,35 @@
      reinicia solo cada día). Devuelve una promesa con ese número (o null
      si falló, p. ej. sin conexión): el pedido se manda por WhatsApp igual,
      que es la vía que el local usa de verdad para confirmar y cocinar. */
-  function saveRealOrder(total) {
+  function saveRealOrder(total, code) {
     if (!db) return Promise.resolve(null);
-    var itemLines = CART.map(function (l) {
-      var s = l.qty + 'x ' + l.name;
-      if (l.toppings && l.toppings.length) {
-        s += ' (' + l.toppings.map(function (t) { return t.qty + 'x ' + t.name; }).join(', ') + ')';
-      }
-      if (l.note) s += ' [Nota: ' + l.note + ']';
-      return s;
+    var itemsData = buildOrderGroups().map(function (g) {
+      return {
+        header: g.header,
+        items: g.items.map(function (l) {
+          return {
+            qty: l.qty,
+            name: l.name,
+            price: linePrice(l),
+            toppings: (l.toppings || []).map(function (t) { return { qty: t.qty, name: t.name, price: t.price }; }),
+            note: l.note || ''
+          };
+        })
+      };
     });
     var address = CHECKOUT.tipo === 'delivery' ? CHECKOUT.direccion : (CHECKOUT.tipo === 'local' ? 'Consumo en el local' : '');
     var zoneName = (CHECKOUT.tipo === 'delivery' && checkoutZone && checkoutZone !== -1) ? ZONES[checkoutZone.i].name : null;
+    var pagoCon = (CHECKOUT.pago === 'Efectivo' && CHECKOUT.pagoCon) ? +CHECKOUT.pagoCon : null;
     return db.from('orders').insert({
       customer_name: CHECKOUT.nombre,
       phone: CHECKOUT.telefono,
       tipo: CHECKOUT.tipo,
       address: address,
       zone: zoneName,
+      code: code,
+      pago_con: pagoCon,
       payment: CHECKOUT.pago,
-      items: itemLines,
+      items: itemsData,
       total: total,
       status: 'nuevos'
     }).select('daily_seq').single().then(function (res) {
@@ -1078,7 +1094,7 @@
     var seq = nextOrderSeq();
     var msg = buildOrderMessage(seq, code, fecha, total);
 
-    saveRealOrder(total);
+    saveRealOrder(total, code);
     window.open(waText(msg), '_blank', 'noopener');
 
     CART = [];

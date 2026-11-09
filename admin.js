@@ -25,6 +25,28 @@
     });
   }
   function fmt(n) { return '$' + (Number(n) || 0).toLocaleString('es-AR'); }
+  /* Mismo formato que argDateStr() en script.js (DD/MM/AA - HH:MMhs,
+     huso de Córdoba), para que la comanda impresa muestre la misma
+     fecha/hora que el cliente vio en su mensaje de WhatsApp. */
+  function fechaStr(d) {
+    var parts = {};
+    try {
+      new Intl.DateTimeFormat('es-AR', {
+        timeZone: 'America/Argentina/Cordoba',
+        day: '2-digit', month: '2-digit', year: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      }).formatToParts(d).forEach(function (p) { parts[p.type] = p.value; });
+    } catch (e) {
+      parts = {
+        day: String(d.getDate()).padStart(2, '0'),
+        month: String(d.getMonth() + 1).padStart(2, '0'),
+        year: String(d.getFullYear()).slice(-2),
+        hour: String(d.getHours()).padStart(2, '0'),
+        minute: String(d.getMinutes()).padStart(2, '0')
+      };
+    }
+    return parts.day + '/' + parts.month + '/' + parts.year + ' - ' + parts.hour + ':' + parts.minute + 'hs';
+  }
   function fmtKm(n) { return String(n).replace('.', ','); }
   function uid() { return 'custom-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
   function byId(id) { return document.getElementById(id); }
@@ -244,16 +266,39 @@
     return {
       id: row.id,
       dailySeq: row.daily_seq,
+      code: row.code || '',
       name: row.customer_name,
       phone: row.phone || '',
       tipo: row.tipo,
       addr: row.address || '',
       items: Array.isArray(row.items) ? row.items : [],
       pay: row.payment || '',
+      pagoCon: row.pago_con != null ? Number(row.pago_con) : null,
       total: Number(row.total) || 0,
       status: row.status,
       createdAt: row.created_at
     };
+  }
+
+  /* Los pedidos guardados antes de este cambio tienen o.items como un
+     array plano de strings; los nuevos lo guardan agrupado (ver
+     buildOrderGroups en script.js). Normalizamos para no romper pedidos
+     viejos que puedan seguir en curso justo durante el deploy. */
+  function orderGroups(o) {
+    if (!Array.isArray(o.items) || !o.items.length) return [];
+    if (typeof o.items[0] === 'string') {
+      return [{ header: null, items: o.items.map(function (s) { return { qty: null, name: s, price: null, toppings: [], note: '', legacy: true }; }) }];
+    }
+    return o.items;
+  }
+  function orderFlatLines(o) {
+    var out = [];
+    orderGroups(o).forEach(function (g) {
+      g.items.forEach(function (l) {
+        out.push(l.legacy ? l.name : (l.qty + 'x ' + l.name));
+      });
+    });
+    return out;
   }
   function ageMin(o) {
     var ms = Date.now() - new Date(o.createdAt).getTime();
@@ -311,9 +356,10 @@
   function orderCardHtml(o) {
     var mins = ageMin(o);
     var late = (o.status === 'nuevos' && mins >= 5) || (o.status === 'cocina' && mins >= 20);
-    var visibleItems = o.items.slice(0, 2);
+    var flatLines = orderFlatLines(o);
+    var visibleItems = flatLines.slice(0, 2);
     var items = visibleItems.map(function (it) { return '<li>' + escapeHtml(it) + '</li>'; }).join('');
-    if (o.items.length > 2) items += '<li>+' + (o.items.length - 2) + ' más</li>';
+    if (flatLines.length > 2) items += '<li>+' + (flatLines.length - 2) + ' más</li>';
     var btns = '';
     if (o.status !== 'entregado') {
       btns += '<button type="button" class="adm-btn adm-btn--yellow adm-btn--sm" data-advance="' + o.id + '">' + NEXT_LABEL[o.status] + '</button>';
@@ -337,19 +383,39 @@
     );
   }
 
+  /* HTML de los grupos de ítems (categoría, cantidad/nombre/precio,
+     toppings y nota) compartido entre el detalle del pedido y la
+     comanda impresa, para que ambos muestren siempre la misma
+     estructura que armó buildOrderGroups() en script.js. */
+  function orderGroupsHtml(o, itemsClass) {
+    return orderGroups(o).map(function (g) {
+      var itemsHtml = g.items.map(function (l) {
+        if (l.legacy) return '<li>' + escapeHtml(l.name) + '</li>';
+        var toppingsHtml = (l.toppings && l.toppings.length)
+          ? '<p class="order-line__topping-label">Topping:</p><ul class="order-line__toppings">' +
+            l.toppings.map(function (t) { return '<li>- ' + t.qty + 'x ' + escapeHtml(t.name) + (t.price > 0 ? ' (+' + fmt(t.price) + ')' : '') + '</li>'; }).join('') +
+            '</ul>'
+          : '';
+        var noteHtml = l.note ? '<p class="order-line__note">Nota: ' + escapeHtml(l.note) + '</p>' : '';
+        return '<li>' + l.qty + 'x ' + escapeHtml(l.name) + ': ' + fmt(l.price) + toppingsHtml + noteHtml + '</li>';
+      }).join('');
+      return (g.header ? '<p class="order-group__header">' + escapeHtml(g.header) + '</p>' : '') +
+        '<ul class="' + (itemsClass || '') + '">' + itemsHtml + '</ul>';
+    }).join('');
+  }
+
   /* ----- modal de detalle del pedido ----- */
   function orderDetailHtml(o) {
-    var items = o.items.map(function (it) { return '<li>' + escapeHtml(it) + '</li>'; }).join('');
     return (
       '<div class="adm-modal-overlay" id="adm-order-modal-overlay">' +
       '<div class="adm-modal-box" role="dialog" aria-modal="true" aria-label="Pedido #' + (o.dailySeq != null ? o.dailySeq : o.id) + '">' +
       '<button type="button" class="adm-modal-close" data-role="order-modal-close">Cerrar</button>' +
       '<h3 class="adm-modal-title">Pedido #' + (o.dailySeq != null ? o.dailySeq : o.id) + '</h3>' +
       '<p class="adm-hint">' + tagHtml(o.tipo) + ' · ' + ageMin(o) + ' min</p>' +
-      '<p><strong>' + escapeHtml(o.name) + '</strong></p>' +
+      '<p><strong>' + escapeHtml(o.name) + '</strong>' + (o.phone ? ' · ' + escapeHtml(o.phone) : '') + '</p>' +
       (o.addr ? '<p>' + escapeHtml(o.addr) + '</p>' : '') +
-      '<ul class="adm-order-detail-items">' + items + '</ul>' +
-      '<p>' + escapeHtml(o.pay) + '</p>' +
+      orderGroupsHtml(o, 'adm-order-detail-items') +
+      '<p>' + escapeHtml(o.pay) + (o.pagoCon != null ? ' · Pago con ' + fmt(o.pagoCon) : '') + '</p>' +
       '<p style="font-size:20px;font-weight:700">' + fmt(o.total) + '</p>' +
       '<div class="adm-modal-actions">' +
       '<button type="button" class="adm-btn adm-btn--outline" data-role="print-order">Imprimir comanda</button>' +
@@ -382,22 +448,28 @@
   function printOrder(o) {
     var root = byId('print-ticket-root');
     if (!root) return;
-    var items = o.items.map(function (it) { return '<li>' + escapeHtml(it) + '</li>'; }).join('');
-    var fecha = o.createdAt ? new Date(o.createdAt).toLocaleString('es-AR') : '';
+    var fecha = o.createdAt ? fechaStr(new Date(o.createdAt)) : '';
+    var tipoLine = o.tipo === 'delivery'
+      ? ('Delivery a: ' + (o.addr || ''))
+      : (o.tipo === 'retiro' ? 'Retira en el local' : 'Consumo en el local');
     root.innerHTML =
       '<div class="print-ticket">' +
-      '<h1>FUFA FOOD</h1>' +
-      '<p class="print-ticket__num">#' + (o.dailySeq != null ? o.dailySeq : o.id) + '</p>' +
-      '<p>' + fecha + '</p>' +
+      '<p>Pedido: #' + (o.dailySeq != null ? o.dailySeq : o.id) + (o.code ? ' / ' + escapeHtml(o.code) : '') + '</p>' +
+      '<p>Tienda: fufafood</p>' +
+      '<p>Fecha: ' + fecha + '</p>' +
+      '<p>Nombre: ' + escapeHtml(o.name) + '</p>' +
+      (o.phone ? '<p>Teléfono: ' + escapeHtml(o.phone) + '</p>' : '') +
       '<hr>' +
-      '<p><strong>' + escapeHtml(o.name) + '</strong>' + (o.phone ? ' · ' + escapeHtml(o.phone) : '') + '</p>' +
-      '<p>' + escapeHtml(o.tipo === 'delivery' ? 'Delivery' : (o.tipo === 'retiro' ? 'Retiro en el local' : 'Consumo en el local')) + '</p>' +
-      (o.addr ? '<p>' + escapeHtml(o.addr) + '</p>' : '') +
+      '<p>Forma de pago: ' + escapeHtml(o.pay) + '</p>' +
+      '<p>Total: ' + fmt(o.total) + '</p>' +
+      (o.pagoCon != null ? '<p>Pago con: ' + fmt(o.pagoCon) + '</p>' : '') +
       '<hr>' +
-      '<ul>' + items + '</ul>' +
+      '<p>' + escapeHtml(tipoLine) + '</p>' +
       '<hr>' +
-      '<p>Pago: ' + escapeHtml(o.pay) + '</p>' +
-      '<p class="print-ticket__total">Total: ' + fmt(o.total) + '</p>' +
+      '<p>Mi pedido es</p>' +
+      orderGroupsHtml(o) +
+      '<hr>' +
+      '<p class="print-ticket__total">TOTAL: ' + fmt(o.total) + '</p>' +
       '</div>';
     window.print();
   }
