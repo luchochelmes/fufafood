@@ -2023,11 +2023,31 @@
     applyAdminEffects();
   }
 
+  /* Cache en localStorage de la última versión conocida de ADMIN (incluye
+     las fotos en base64). Así, en visitas siguientes, el hero y el resto
+     de la web se pintan al instante con lo último guardado mientras de
+     fondo se pide la versión fresca a Supabase — evita el hueco en negro
+     que se veía mientras viajaba el pedido de red. */
+  var ADMIN_CACHE_KEY = 'fufaAdminCache';
+  function loadAdminFromCache() {
+    try {
+      var raw = window.localStorage.getItem(ADMIN_CACHE_KEY);
+      if (!raw) return;
+      refreshAdmin(JSON.parse(raw));
+    } catch (e) { /* localStorage puede no estar disponible o el JSON es viejo; no pasa nada */ }
+  }
+  function saveAdminToCache(data) {
+    try { window.localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify(data || {})); }
+    catch (e) { /* cuota llena u otro error de localStorage: seguimos sin cache */ }
+  }
+
   function loadAdminFromDb() {
     if (!db) return;
     db.from('app_settings').select('data').eq('id', 'main').maybeSingle().then(function (res) {
       if (res.error) { if (window.console) console.error(res.error); return; }
-      refreshAdmin(res.data && res.data.data);
+      var fresh = res.data && res.data.data;
+      refreshAdmin(fresh);
+      saveAdminToCache(fresh);
     });
   }
 
@@ -2035,7 +2055,9 @@
     if (!db) return;
     db.channel('settings-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings', filter: 'id=eq.main' }, function (payload) {
-        refreshAdmin(payload.new && payload.new.data);
+        var fresh = payload.new && payload.new.data;
+        refreshAdmin(fresh);
+        saveAdminToCache(fresh);
       })
       .subscribe();
   }
@@ -2057,6 +2079,7 @@
 
     renderStaticPhotos();
     applyAdminEffects();
+    loadAdminFromCache();
     loadAdminFromDb();
     subscribeAdmin();
     setInterval(renderStatus, 60000);

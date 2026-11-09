@@ -388,7 +388,7 @@
       '<p>' + fecha + '</p>' +
       '<hr>' +
       '<p><strong>' + escapeHtml(o.name) + '</strong>' + (o.phone ? ' · ' + escapeHtml(o.phone) : '') + '</p>' +
-      '<p>' + escapeHtml(o.tipo === 'delivery' ? 'Delivery' : (o.tipo === 'retiro' ? 'Retiro en el local' : 'Mesa')) + '</p>' +
+      '<p>' + escapeHtml(o.tipo === 'delivery' ? 'Delivery' : (o.tipo === 'retiro' ? 'Retiro en el local' : 'Consumo en el local')) + '</p>' +
       (o.addr ? '<p>' + escapeHtml(o.addr) + '</p>' : '') +
       '<hr>' +
       '<ul>' + items + '</ul>' +
