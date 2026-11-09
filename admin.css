@@ -190,6 +190,7 @@ a{color:inherit}
 @media (min-width:640px){.adm-modal-overlay{align-items:center}}
 .adm-modal-box{background:var(--cream);width:100%;max-width:560px;max-height:90vh;overflow:auto;border-radius:14px 14px 0 0;padding:24px clamp(20px,4vw,32px) 28px;position:relative}
 @media (min-width:640px){.adm-modal-box{border-radius:14px}}
+.adm-modal-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px}
 .adm-modal-close{position:absolute;top:14px;right:14px;min-height:36px;padding:0 12px;background:transparent;border:2px solid var(--ink);border-radius:6px;font:700 13px 'Work Sans',sans-serif;cursor:pointer}
 .adm-modal-title{font-family:Anton,Impact,sans-serif;font-size:24px;text-transform:uppercase;margin:0;padding-right:70px}
 

@@ -318,9 +318,7 @@
     if (o.status !== 'entregado') {
       btns += '<button type="button" class="adm-btn adm-btn--yellow adm-btn--sm" data-advance="' + o.id + '">' + NEXT_LABEL[o.status] + '</button>';
     }
-    if (o.status === 'nuevos') {
-      btns += '<button type="button" class="adm-btn adm-btn--danger adm-btn--sm" data-reject="' + o.id + '">Rechazar</button>';
-    }
+    btns += '<button type="button" class="adm-btn adm-btn--danger adm-btn--sm" data-cancel="' + o.id + '">Cancelar</button>';
     return (
       '<article class="adm-card">' +
       '<div class="adm-card__top"><span>#' + (o.dailySeq != null ? o.dailySeq : o.id) + '</span><span class="adm-card__age' + (late ? ' is-late' : '') + '">' + mins + ' min</span></div>' +
@@ -353,7 +351,10 @@
       '<ul class="adm-order-detail-items">' + items + '</ul>' +
       '<p>' + escapeHtml(o.pay) + '</p>' +
       '<p style="font-size:20px;font-weight:700">' + fmt(o.total) + '</p>' +
+      '<div class="adm-modal-actions">' +
       '<button type="button" class="adm-btn adm-btn--outline" data-role="print-order">Imprimir comanda</button>' +
+      '<button type="button" class="adm-btn adm-btn--danger" data-role="cancel-order">Cancelar pedido</button>' +
+      '</div>' +
       '</div></div>'
     );
   }
@@ -367,6 +368,8 @@
     if (closeBtn) closeBtn.addEventListener('click', closeOrderDetail);
     var printBtn = root.querySelector('[data-role="print-order"]');
     if (printBtn) printBtn.addEventListener('click', function () { printOrder(o); });
+    var cancelBtn = root.querySelector('[data-role="cancel-order"]');
+    if (cancelBtn) cancelBtn.addEventListener('click', function () { cancelOrder(o.id); });
     var overlay = byId('adm-order-modal-overlay');
     if (overlay) overlay.addEventListener('click', function (e) { if (e.target === overlay) closeOrderDetail(); });
   }
@@ -438,17 +441,25 @@
         });
       });
     });
-    board.querySelectorAll('[data-reject]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var id = +btn.getAttribute('data-reject');
-        orders = orders.filter(function (x) { return x.id !== id; });
-        renderKanbanTabs(); renderKanban(); renderPedidosResumen(); renderBadges();
-        db.from('orders').delete().eq('id', id).then(function (res) {
-          if (res.error && window.console) console.error(res.error);
-        });
-      });
+    board.querySelectorAll('[data-cancel]').forEach(function (btn) {
+      btn.addEventListener('click', function () { cancelOrder(+btn.getAttribute('data-cancel')); });
     });
     renderKanbanTabs();
+  }
+
+  /* Cancelar borra el pedido para siempre (no hay "cancelados" para revisar
+     despues), asi que se confirma antes de mandar el delete. */
+  function cancelOrder(id) {
+    var o = orders.filter(function (x) { return x.id === id; })[0];
+    if (!o) return;
+    var label = '#' + (o.dailySeq != null ? o.dailySeq : o.id) + ' (' + o.name + ')';
+    if (!window.confirm('¿Cancelar el pedido ' + label + '? Se borra por completo, no se puede deshacer.')) return;
+    orders = orders.filter(function (x) { return x.id !== id; });
+    renderKanbanTabs(); renderKanban(); renderPedidosResumen(); renderBadges();
+    closeOrderDetail();
+    db.from('orders').delete().eq('id', id).then(function (res) {
+      if (res.error && window.console) console.error(res.error);
+    });
   }
 
   function renderPedidosResumen() {
