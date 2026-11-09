@@ -27,7 +27,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Work+Sans:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="styles.css?v=20261104b">
+<link rel="stylesheet" href="styles.css?v=20261104c">
 </head>
 <body>
 
@@ -92,22 +92,7 @@
       <h1 class="hero-tipo__title visually-hidden" id="hero-title">Donde el hambre se rinde.</h1>
       <p class="hero-tipo__desc visually-hidden" id="hero-desc">Hamburguesas, lomitos, pizzas y empanadas en Alta Córdoba. Comé en el local, pedí delivery o alquilá el espacio para tu evento.</p>
       <div class="hero-tipo__btns hero-tipo__btns--standalone">
-        <button type="button" class="btn btn-yellow btn-lift" id="hero-cta-retiro" data-hero-panel="retiro">Retirar</button>
-        <button type="button" class="btn btn-yellow btn-lift" id="hero-cta-delivery" data-hero-panel="delivery">Delivery</button>
-      </div>
-      <div class="hero-panel" id="hero-panel-retiro" hidden>
-        <p class="hero-panel__line"><strong>Dónde</strong> · Mariano Fragueiro 2706, esq. Francisco de Quevedo, Alta Córdoba</p>
-        <p class="hero-panel__line" id="hero-panel-retiro-status"></p>
-        <a href="/carta" class="btn btn-yellow btn-lift" data-order-type="retiro">Ver la carta</a>
-      </div>
-      <div class="hero-panel" id="hero-panel-delivery" hidden>
-        <p class="hero-panel__line" id="hero-panel-delivery-status"></p>
-        <form id="hero-zone-form" class="zone-form">
-          <label for="hero-barrio-input" class="visually-hidden">Tu barrio</label>
-          <input id="hero-barrio-input" list="barrios-list" placeholder="Tu calle y altura, o tu barrio" autocomplete="off">
-          <button type="submit" class="btn btn-yellow btn-lift">Buscar</button>
-        </form>
-        <div id="hero-zone-result"></div>
+        <a href="/carta" class="btn btn-yellow btn-lift">Ver la carta</a>
       </div>
     </div>
   </section>
@@ -359,6 +344,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="supabase-client.js?v=20261102m"></script>
-<script src="script.js?v=20261104a"></script>
+<script src="script.js?v=20261104b"></script>
 </body>
 </html>

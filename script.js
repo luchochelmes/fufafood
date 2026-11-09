@@ -434,7 +434,7 @@
     var c = CARTA_DATA.filter(function (cc) { return cc.slug === catSlug; })[0];
     var p = findProductById(catSlug, pid);
     if (!c || !p) return;
-    MODAL = { catSlug: c.slug, catName: c.name, group: p.group || '', product: p, qty: 1, any: {}, fixed: {}, photoIndex: 0 };
+    MODAL = { catSlug: c.slug, catName: c.name, group: p.group || '', product: p, qty: 1, any: {}, fixed: {}, photoIndex: 0, note: '' };
     (p.options || []).forEach(function (o, gi) {
       if (o.rangeType === 'fixed' && o.qty && o.min) {
         MODAL.fixed[gi] = {};
@@ -648,6 +648,10 @@
     var canAdd = modalFixedOk();
     var total = MODAL.qty * (p.price + modalExtrasTotal());
     var msg = canAdd ? '' : '<p class="modal-add-msg">Completá los sabores para poder agregarlo.</p>';
+    var noteHtml = ['hamburguesas', 'lomitos', 'sandwiches'].indexOf(MODAL.catSlug) !== -1
+      ? ('<label class="modal-note"><span class="modal-note__label">¿Algo que tengamos que saber de tu pedido? (opcional)</span>' +
+         '<textarea id="modal-note" rows="2" placeholder="Ej: sin sal, bien cocida, alergia a X…">' + escapeHtml(MODAL.note || '') + '</textarea></label>')
+      : '';
 
     /* Guardamos el scroll del modal antes de redibujar, porque reemplazar el
        innerHTML crea un elemento nuevo y el navegador lo arranca en scrollTop 0
@@ -670,6 +674,7 @@
       '<button type="button" data-modal-qty-inc>+</button>' +
       '</span></div>' +
       groupsHtml +
+      noteHtml +
       '<div class="modal-add-wrap">' + msg +
       '<button type="button" class="btn btn-yellow" id="modal-add-btn" data-modal-add' + (canAdd ? '' : ' disabled') + '>Agregar al pedido · ' + fmt(total) + '</button>' +
       '</div></div></div>';
@@ -716,7 +721,8 @@
     CART.push({
       id: 'l' + Date.now() + Math.random().toString(36).slice(2, 8),
       catSlug: MODAL.catSlug, catName: MODAL.catName, group: MODAL.group,
-      name: p.name, unitPrice: p.price, qty: MODAL.qty, toppings: toppings
+      name: p.name, unitPrice: p.price, qty: MODAL.qty, toppings: toppings,
+      note: (MODAL.note || '').trim()
     });
     saveCart();
     closeProductModal();
@@ -760,7 +766,7 @@
 
   /* -------- drawer del carrito + checkout -------- */
   var DRAWER_VIEW = 'cart'; /* 'cart' | 'checkout' */
-  var CHECKOUT = { tipo: 'retiro', mesa: 'Mesa 1', direccion: '', pago: 'Efectivo', pagoCon: '', nombre: '', telefono: '' };
+  var CHECKOUT = { tipo: 'retiro', direccion: '', pago: 'Efectivo', pagoCon: '', nombre: '', telefono: '' };
   var checkoutZone = null; /* resultado de findZone() sobre CHECKOUT.direccion */
 
   function deliveryCost() {
@@ -808,11 +814,12 @@
             return '<li>' + t.qty + 'x ' + escapeHtml(t.name) + (t.price > 0 ? ' (+' + fmt(t.price) + ')' : '') + '</li>';
           }).join('') + '</ul>'
           : '';
+        var note = l.note ? '<p class="cart-line__note">Nota: ' + escapeHtml(l.note) + '</p>' : '';
         return (
           '<div class="cart-line" data-line="' + l.id + '">' +
           '<div class="cart-line__main"><span class="cart-line__name">' + l.qty + 'x ' + escapeHtml(l.name) + '</span>' +
           '<span class="cart-line__price">' + fmt(linePrice(l)) + '</span></div>' +
-          tops +
+          tops + note +
           '<div class="cart-line__ctrl">' +
           '<span class="stepper">' +
           '<button type="button" data-line-dec data-id="' + l.id + '">−</button>' +
@@ -863,11 +870,6 @@
     var labels = { delivery: 'Delivery', retiro: 'Retiro en el local', local: 'Consumo en el local' };
     var radios = avail.map(function (t) { return radioRow(t, labels[t], tipo); }).join('');
 
-    var mesaOptions = '';
-    for (var m = 1; m <= 12; m++) {
-      mesaOptions += '<option value="Mesa ' + m + '"' + (CHECKOUT.mesa === 'Mesa ' + m ? ' selected' : '') + '>Mesa ' + m + '</option>';
-    }
-
     var conditional = '';
     if (tipo === 'delivery') {
       var zoneHint = '';
@@ -884,9 +886,6 @@
         '</label>' +
         '<p class="field-error" id="co-err-direccion" hidden>Falta la dirección.</p>' +
         zoneHint;
-    } else if (tipo === 'local') {
-      conditional =
-        '<label class="field">Mesa<select id="co-mesa">' + mesaOptions + '</select></label>';
     }
 
     var pagoConWrap = CHECKOUT.pago === 'Efectivo'
@@ -971,7 +970,7 @@
     }
     lines.push('');
     if (CHECKOUT.tipo === 'local') {
-      lines.push('Consumo en local: Mesa ' + CHECKOUT.mesa);
+      lines.push('Consumo en el local');
     } else if (CHECKOUT.tipo === 'delivery') {
       lines.push('Delivery a: ' + CHECKOUT.direccion);
     } else {
@@ -999,6 +998,7 @@
             lines.push('    - ' + t.qty + 'x ' + t.name + (t.price > 0 ? ' (+' + fmt(t.price) + ')' : ''));
           });
         }
+        if (l.note) lines.push('    Nota: ' + l.note);
       });
       lines.push('');
     });
@@ -1022,9 +1022,10 @@
       if (l.toppings && l.toppings.length) {
         s += ' (' + l.toppings.map(function (t) { return t.qty + 'x ' + t.name; }).join(', ') + ')';
       }
+      if (l.note) s += ' [Nota: ' + l.note + ']';
       return s;
     });
-    var address = CHECKOUT.tipo === 'delivery' ? CHECKOUT.direccion : (CHECKOUT.tipo === 'local' ? CHECKOUT.mesa : '');
+    var address = CHECKOUT.tipo === 'delivery' ? CHECKOUT.direccion : (CHECKOUT.tipo === 'local' ? 'Consumo en el local' : '');
     var zoneName = (CHECKOUT.tipo === 'delivery' && checkoutZone && checkoutZone !== -1) ? ZONES[checkoutZone.i].name : null;
     return db.from('orders').insert({
       customer_name: CHECKOUT.nombre,
@@ -1083,7 +1084,7 @@
     CART = [];
     saveCart();
     checkoutZone = null;
-    CHECKOUT = { tipo: 'retiro', mesa: 'Mesa 1', direccion: '', pago: 'Efectivo', pagoCon: '', nombre: '', telefono: '' };
+    CHECKOUT = { tipo: 'retiro', direccion: '', pago: 'Efectivo', pagoCon: '', nombre: '', telefono: '' };
     closeCart();
   }
 
@@ -1195,7 +1196,6 @@
       renderDrawer();
       return;
     }
-    if (e.target.id === 'co-mesa') { CHECKOUT.mesa = e.target.value; return; }
     if (e.target.id === 'co-pago') { CHECKOUT.pago = e.target.value; renderDrawer(); return; }
     if (e.target.id === 'co-pagocon') { CHECKOUT.pagoCon = e.target.value; return; }
     if (e.target.id === 'co-nombre') { CHECKOUT.nombre = e.target.value; return; }
@@ -1211,6 +1211,7 @@
       checkoutZone = findZone(e.target.value);
       markField('co-direccion', 'co-err-direccion', !!e.target.value.trim());
     }
+    if (e.target.id === 'modal-note' && MODAL) MODAL.note = e.target.value;
   });
 
   document.addEventListener('submit', function (e) {
@@ -1310,13 +1311,10 @@
     document.querySelectorAll('.status-dot').forEach(function (el) { el.style.background = color; });
     var full = document.getElementById('status-text-full');
     var short = document.getElementById('status-text-short');
-    var hero = document.getElementById('status-text-hero');
     var menu = document.getElementById('mobile-menu-status');
     if (full) full.textContent = st.text;
     if (short) short.textContent = st.nav;
-    if (hero) hero.textContent = st.text;
     if (menu) menu.innerHTML = escapeHtml(st.text) + '<br>Mariano Fragueiro 2706, esq. Francisco de Quevedo, Alta Córdoba';
-    renderHeroStatusLines();
   }
 
   /* ===================== promo de hoy (la activa el local desde el panel) =====================
@@ -1706,67 +1704,6 @@
     });
   }
 
-  /* ===================== hero: paneles Retirar / Delivery =====================
-     Antes el hero mostraba una franja fija con "Dónde / Cuándo / Delivery".
-     Ahora cada botón abre un panel propio: Retirar muestra dirección y horario
-     con un link directo a la carta; Delivery muestra el horario y el mismo
-     buscador de zona de la sección Delivery (comparte la variable currentZone,
-     así si encuentra la zona, el checkout ya la trae precargada). */
-  function renderHeroStatusLines() {
-    var st = getStatus();
-    var html = '<strong>Cuándo</strong> · ' + escapeHtml(st.text);
-    var r = document.getElementById('hero-panel-retiro-status');
-    var d = document.getElementById('hero-panel-delivery-status');
-    if (r) r.innerHTML = html;
-    if (d) d.innerHTML = html;
-  }
-
-  function showHeroPanel(which) {
-    ['retiro', 'delivery'].forEach(function (k) {
-      var el = document.getElementById('hero-panel-' + k);
-      if (el) el.hidden = (k !== which);
-    });
-    renderHeroStatusLines();
-  }
-
-  function renderHeroZoneResult() {
-    var el = document.getElementById('hero-zone-result');
-    if (!el) return;
-    if (!currentZone) { el.innerHTML = ''; return; }
-    if (currentZone === -1) {
-      el.innerHTML = '<div class="zone-result zone-result--no"><strong>Todavía no llegamos a tu zona.</strong> Pero podés retirar tu pedido en Mariano Fragueiro 2706, esq. Francisco de Quevedo, o pedirnos por PedidosYa o Mercado Libre.</div>';
-      return;
-    }
-    var z = ZONES[currentZone.i];
-    var line = (currentZone.addr || currentZone.b) + ': envío ' + fmt(z.cost) + ' · ' + z.time;
-    el.innerHTML =
-      '<div class="zone-result zone-result--yes">' +
-      '<span class="ok"><span class="ok-dot"></span>Sí, llegamos</span>' +
-      '<span>' + escapeHtml(line) + '</span>' +
-      '<a href="/carta" data-order-type="delivery">Armá tu pedido</a>' +
-      '</div>';
-  }
-
-  function checkHeroZone(e) {
-    if (e) e.preventDefault();
-    var input = document.getElementById('hero-barrio-input');
-    var q = input ? input.value : '';
-    var el = document.getElementById('hero-zone-result');
-    if (el) el.innerHTML = '<p class="zone-result">Buscando tu dirección…</p>';
-    resolveZone(q).then(function (result) {
-      currentZone = result;
-      renderHeroZoneResult();
-    });
-  }
-
-  function initHeroPanels() {
-    document.querySelectorAll('[data-hero-panel]').forEach(function (btn) {
-      btn.addEventListener('click', function () { showHeroPanel(btn.getAttribute('data-hero-panel')); });
-    });
-    var form = document.getElementById('hero-zone-form');
-    if (form) form.addEventListener('submit', checkHeroZone);
-  }
-
   /* ===================== event form ===================== */
   function initEventForm() {
     var form = document.getElementById('event-form');
@@ -1962,10 +1899,6 @@
     if (eventosSec) eventosSec.hidden = (services.eventos === false);
     var retiroRow = document.getElementById('cond-retiro-row');
     if (retiroRow) retiroRow.hidden = (services.retiro === false);
-    var heroRetiro = document.getElementById('hero-cta-retiro');
-    if (heroRetiro) heroRetiro.hidden = (services.retiro === false);
-    var heroDelivery = document.getElementById('hero-cta-delivery');
-    if (heroDelivery) heroDelivery.hidden = (services.delivery === false);
 
     var zf = document.getElementById('zone-form');
     var zl = document.getElementById('zones-list');
@@ -2151,7 +2084,6 @@
     initEventForm();
 
     initCartaSearch();
-    initHeroPanels();
 
     document.getElementById('menu-open-btn').addEventListener('click', openMenu);
     document.getElementById('menu-close-btn').addEventListener('click', closeMenu);
