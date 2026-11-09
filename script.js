@@ -767,12 +767,37 @@
   /* -------- drawer del carrito + checkout -------- */
   var DRAWER_VIEW = 'cart'; /* 'cart' | 'checkout' */
   var CHECKOUT = { tipo: 'retiro', direccion: '', pago: 'Efectivo', pagoCon: '', nombre: '', telefono: '' };
-  var checkoutZone = null; /* resultado de findZone() sobre CHECKOUT.direccion */
+  var checkoutZone = null; /* resultado de findZone()/resolveZone() sobre CHECKOUT.direccion */
+  var ZONE_PENDING = 'buscando'; /* sentinel: geocodificando la dirección, todavía no hay resultado */
+  var checkoutZoneReqId = 0;
 
   function deliveryCost() {
     if (CHECKOUT.tipo !== 'delivery') return 0;
-    if (checkoutZone && checkoutZone !== -1) return ZONES[checkoutZone.i].cost;
+    if (checkoutZone && checkoutZone !== -1 && checkoutZone !== ZONE_PENDING) return ZONES[checkoutZone.i].cost;
     return 0;
+  }
+
+  /* Si lo que escribió no matchea ningún barrio conocido (p. ej. puso
+     solo la calle, sin el barrio), probamos geocodificarlo igual que el
+     buscador de zona de la sección Delivery, para no obligar al cliente
+     a escribir el barrio a mano. Se dispara solo al salir del campo
+     (evento "change", ver más abajo) para no spamear Nominatim en cada
+     tecla. */
+  function resolveCheckoutZone(value) {
+    var local = findZone(value);
+    if (local === null || local !== -1) {
+      checkoutZone = local;
+      renderDrawer();
+      return;
+    }
+    checkoutZone = ZONE_PENDING;
+    renderDrawer();
+    var reqId = ++checkoutZoneReqId;
+    resolveZone(value).then(function (result) {
+      if (reqId !== checkoutZoneReqId) return; /* el usuario ya volvió a tocar el campo */
+      checkoutZone = result;
+      renderDrawer();
+    });
   }
 
   function openCart() {
@@ -874,15 +899,17 @@
     if (tipo === 'delivery') {
       var zoneHint = '';
       if (CHECKOUT.direccion) {
-        if (checkoutZone && checkoutZone !== -1) {
+        if (checkoutZone === ZONE_PENDING) {
+          zoneHint = '<p class="zone-hint">Buscando tu dirección…</p>';
+        } else if (checkoutZone && checkoutZone !== -1) {
           zoneHint = '<p class="zone-hint ok">Llegamos · envío ' + fmt(ZONES[checkoutZone.i].cost) + '</p>';
         } else if (checkoutZone === -1) {
           zoneHint = '<p class="zone-hint no">No reconocemos esa zona todavía, coordinamos el envío por WhatsApp.</p>';
         }
       }
       conditional =
-        '<label class="field">Dirección (calle, altura y barrio)' +
-        '<input id="co-direccion" list="co-barrios-list" required value="' + escapeHtml(CHECKOUT.direccion) + '" placeholder="Ej: Rivera Indarte 123, Cofico">' +
+        '<label class="field">Dirección (calle y altura; el barrio es opcional)' +
+        '<input id="co-direccion" list="co-barrios-list" required value="' + escapeHtml(CHECKOUT.direccion) + '" placeholder="Ej: Rivera Indarte 123">' +
         '</label>' +
         '<p class="field-error" id="co-err-direccion" hidden>Falta la dirección.</p>' +
         zoneHint;
@@ -1039,7 +1066,7 @@
       };
     });
     var address = CHECKOUT.tipo === 'delivery' ? CHECKOUT.direccion : (CHECKOUT.tipo === 'local' ? 'Consumo en el local' : '');
-    var zoneName = (CHECKOUT.tipo === 'delivery' && checkoutZone && checkoutZone !== -1) ? ZONES[checkoutZone.i].name : null;
+    var zoneName = (CHECKOUT.tipo === 'delivery' && checkoutZone && checkoutZone !== -1 && checkoutZone !== ZONE_PENDING) ? ZONES[checkoutZone.i].name : null;
     var pagoCon = (CHECKOUT.pago === 'Efectivo' && CHECKOUT.pagoCon) ? +CHECKOUT.pagoCon : null;
     return db.from('orders').insert({
       customer_name: CHECKOUT.nombre,
@@ -1208,8 +1235,7 @@
     }
     if (e.target.id === 'co-direccion') {
       CHECKOUT.direccion = e.target.value;
-      checkoutZone = findZone(e.target.value);
-      renderDrawer();
+      resolveCheckoutZone(e.target.value);
       return;
     }
     if (e.target.id === 'co-pago') { CHECKOUT.pago = e.target.value; renderDrawer(); return; }
