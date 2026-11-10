@@ -109,10 +109,21 @@
   // que hay sesión y llegó la fila real desde Supabase.
   var state = defaultState();
 
+  /* Si esto falla (hipo de red) o la fila no llega, antes el panel seguía
+     de largo con state = defaultState() SIN avisar nada: cualquier cambio
+     hecho después pisaba TODA la configuración real (horarios, zonas,
+     fotos, precios, los más pedidos, etc) con los valores de fábrica. Ahora
+     reintenta solo hasta tener la fila real antes de dejar seguir a boot(). */
   function loadStateFromDb() {
     return db.from('app_settings').select('data').eq('id', 'main').maybeSingle().then(function (res) {
-      if (res.error) { if (window.console) console.error(res.error); return; }
-      state = mergeState(defaultState(), res.data && res.data.data);
+      if (res.error || !res.data) {
+        if (window.console) console.error(res.error || new Error('app_settings "main" no llegó, reintentando'));
+        return new Promise(function (resolve) { setTimeout(function () { resolve(loadStateFromDb()); }, 3000); });
+      }
+      state = mergeState(defaultState(), res.data.data);
+    }).catch(function (err) {
+      if (window.console) console.error(err);
+      return new Promise(function (resolve) { setTimeout(function () { resolve(loadStateFromDb()); }, 3000); });
     });
   }
 
