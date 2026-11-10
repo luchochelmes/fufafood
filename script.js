@@ -2083,13 +2083,20 @@
     catch (e) { /* cuota llena u otro error de localStorage: seguimos sin cache */ }
   }
 
+  /* Si este pedido falla (hipo de red, etc) reintenta solo: sin esto, un
+     fallo puntual dejaba la web mostrando para siempre lo último que
+     había en el cache local del navegador, sin forma de enterarse de
+     cambios hechos desde el panel. */
   function loadAdminFromDb() {
     if (!db) return;
     db.from('app_settings').select('data').eq('id', 'main').maybeSingle().then(function (res) {
-      if (res.error) { if (window.console) console.error(res.error); return; }
+      if (res.error) { if (window.console) console.error(res.error); setTimeout(loadAdminFromDb, 4000); return; }
       var fresh = res.data && res.data.data;
       refreshAdmin(fresh);
       saveAdminToCache(fresh);
+    }).catch(function (err) {
+      if (window.console) console.error(err);
+      setTimeout(loadAdminFromDb, 4000);
     });
   }
 
