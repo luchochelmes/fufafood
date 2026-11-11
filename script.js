@@ -627,7 +627,7 @@
       }).length;
       var isFree = regular.length && regular.every(function (it) { return !it.price; });
       var title = o.name || 'Opciones';
-      var counter = isFree ? ' <span class="opt-group__hint is-ok">(sin cargo' + (freeCount ? ' · elegiste ' + freeCount : '') + ')</span>' : '';
+      var counter = isFree ? ' <span class="opt-group__hint is-ok">(elegí 1, sin cargo' + (freeCount ? ' · elegiste ' + freeCount : '') + ')</span>' : '';
       var out = regular.length ? (
         '<div class="opt-group">' +
         '<p class="opt-group__title">' + escapeHtml(title) + counter + '</p>' +
@@ -739,13 +739,13 @@
     }
     return el;
   }
-  function showToast(text) {
+  function showToast(text, ms) {
     var el = toastEl();
     el.classList.remove('ff-toast--action');
     el.textContent = text;
     el.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.hidden = true; }, 1800);
+    toastTimer = setTimeout(function () { el.hidden = true; }, ms || 1800);
   }
   /* Confirmación de "se agregó al pedido": trae un botón para ir directo
      al carrito. A diferencia de un toast normal, esta NO se cierra sola
@@ -771,9 +771,13 @@
   var ZONE_PENDING = 'buscando'; /* sentinel: geocodificando la dirección, todavía no hay resultado */
   var checkoutZoneReqId = 0;
 
+  function checkoutZoneResolved() {
+    return checkoutZone && typeof checkoutZone === 'object';
+  }
+
   function deliveryCost() {
     if (CHECKOUT.tipo !== 'delivery') return 0;
-    if (checkoutZone && checkoutZone !== -1 && checkoutZone !== ZONE_PENDING) return ZONES[checkoutZone.i].cost;
+    if (checkoutZoneResolved()) return ZONES[checkoutZone.i].cost;
     return 0;
   }
 
@@ -834,8 +838,11 @@
       body = '<p class="drawer-empty">Todavía no agregaste nada. Elegí algo de la carta.</p>';
     } else {
       body = CART.map(function (l) {
+        var topsLabel = l.qty > 1
+          ? '<p class="cart-line__tops-label">Cada unidad lleva:</p>'
+          : '';
         var tops = (l.toppings || []).length
-          ? '<ul class="cart-line__tops">' + l.toppings.map(function (t) {
+          ? topsLabel + '<ul class="cart-line__tops">' + l.toppings.map(function (t) {
             return '<li>' + t.qty + 'x ' + escapeHtml(t.name) + (t.price > 0 ? ' (+' + fmt(t.price) + ')' : '') + '</li>';
           }).join('') + '</ul>'
           : '';
@@ -901,10 +908,12 @@
       if (CHECKOUT.direccion) {
         if (checkoutZone === ZONE_PENDING) {
           zoneHint = '<p class="zone-hint">Buscando tu dirección…</p>';
-        } else if (checkoutZone && checkoutZone !== -1) {
+        } else if (checkoutZoneResolved()) {
           zoneHint = '<p class="zone-hint ok">Llegamos · envío ' + fmt(ZONES[checkoutZone.i].cost) + '</p>';
+        } else if (checkoutZone === 'not-found') {
+          zoneHint = '<p class="zone-hint no">No encontramos esa dirección, revisá que esté bien escrita.</p>';
         } else if (checkoutZone === -1) {
-          zoneHint = '<p class="zone-hint no">No reconocemos esa zona todavía, coordinamos el envío por WhatsApp.</p>';
+          zoneHint = '<p class="zone-hint no">Esa dirección está fuera de zona, coordinamos el envío por WhatsApp.</p>';
         }
       }
       conditional =
@@ -916,7 +925,8 @@
     }
 
     var pagoConWrap = CHECKOUT.pago === 'Efectivo'
-      ? '<label class="field" id="co-pagocon-wrap">¿Con cuánto pagás? (opcional)<input id="co-pagocon" type="number" min="0" inputmode="numeric" value="' + escapeHtml(CHECKOUT.pagoCon) + '"></label>'
+      ? ('<label class="field" id="co-pagocon-wrap">¿Con cuánto pagás? (opcional)<input id="co-pagocon" type="number" min="0" inputmode="numeric" value="' + escapeHtml(CHECKOUT.pagoCon) + '"></label>' +
+         '<p class="field-error" id="co-err-pagocon" hidden>Tiene que ser igual o mayor al total del pedido.</p>')
       : '';
 
     return (
@@ -931,8 +941,8 @@
       conditional +
       '<label class="field">Tu nombre<input id="co-nombre" required value="' + escapeHtml(CHECKOUT.nombre) + '" autocomplete="name"></label>' +
       '<p class="field-error" id="co-err-nombre" hidden>Decinos cómo te llamás.</p>' +
-      '<label class="field">Teléfono<input id="co-telefono" required value="' + escapeHtml(CHECKOUT.telefono) + '" autocomplete="tel"></label>' +
-      '<p class="field-error" id="co-err-telefono" hidden>Falta un teléfono de contacto.</p>' +
+      '<label class="field">Teléfono<input id="co-telefono" required value="' + escapeHtml(CHECKOUT.telefono) + '" autocomplete="tel" inputmode="tel" placeholder="Ej: 3511234567"></label>' +
+      '<p class="field-error" id="co-err-telefono" hidden>Falta un teléfono válido (mínimo 10 números).</p>' +
       '<label class="field">Forma de pago<select id="co-pago">' +
       ['Efectivo', 'Transferencia', 'Mercado Pago'].map(function (o) { return '<option' + (CHECKOUT.pago === o ? ' selected' : '') + '>' + o + '</option>'; }).join('') +
       '</select></label>' +
@@ -1027,7 +1037,7 @@
       g.items.forEach(function (l) {
         lines.push(l.qty + 'x ' + l.name + ': ' + fmt(linePrice(l)));
         if (l.toppings && l.toppings.length) {
-          lines.push('    Topping:');
+          lines.push(l.qty > 1 ? '    Cada unidad lleva:' : '    Topping:');
           l.toppings.forEach(function (t) {
             lines.push('    - ' + t.qty + 'x ' + t.name + (t.price > 0 ? ' (+' + fmt(t.price) + ')' : ''));
           });
@@ -1049,6 +1059,26 @@
      reinicia solo cada día). Devuelve una promesa con ese número (o null
      si falló, p. ej. sin conexión): el pedido se manda por WhatsApp igual,
      que es la vía que el local usa de verdad para confirmar y cocinar. */
+  /* Intenta guardar hasta 3 veces (con una pequeña espera entre intentos)
+     antes de darse por vencido. Esto corre DESPUÉS de abrir WhatsApp (ver
+     confirmOrder), así que nunca retrasa ese paso — solo mejora las chances
+     de que el pedido llegue al panel aunque haya un hipo de red puntual. */
+  function insertOrderWithRetry(payload, attemptsLeft) {
+    return db.from('orders').insert(payload).select('daily_seq').single().then(function (res) {
+      if (res.error) throw res.error;
+      return res.data ? res.data.daily_seq : null;
+    }).catch(function (err) {
+      if (attemptsLeft > 0) {
+        return new Promise(function (resolve) {
+          setTimeout(function () { resolve(insertOrderWithRetry(payload, attemptsLeft - 1)); }, 1500);
+        });
+      }
+      if (window.console) console.error('No se pudo guardar el pedido real', err);
+      showToast('Ojo: no pudimos confirmar tu pedido en el sistema del local. Asegurate de que te respondan por WhatsApp.', 6000);
+      return null;
+    });
+  }
+
   function saveRealOrder(total, code) {
     if (!db) return Promise.resolve(null);
     var itemsData = buildOrderGroups().map(function (g) {
@@ -1066,9 +1096,9 @@
       };
     });
     var address = CHECKOUT.tipo === 'delivery' ? CHECKOUT.direccion : (CHECKOUT.tipo === 'local' ? 'Consumo en el local' : '');
-    var zoneName = (CHECKOUT.tipo === 'delivery' && checkoutZone && checkoutZone !== -1 && checkoutZone !== ZONE_PENDING) ? ZONES[checkoutZone.i].name : null;
+    var zoneName = (CHECKOUT.tipo === 'delivery' && checkoutZoneResolved()) ? ZONES[checkoutZone.i].name : null;
     var pagoCon = (CHECKOUT.pago === 'Efectivo' && CHECKOUT.pagoCon) ? +CHECKOUT.pagoCon : null;
-    return db.from('orders').insert({
+    return insertOrderWithRetry({
       customer_name: CHECKOUT.nombre,
       phone: CHECKOUT.telefono,
       tipo: CHECKOUT.tipo,
@@ -1080,10 +1110,7 @@
       items: itemsData,
       total: total,
       status: 'nuevos'
-    }).select('daily_seq').single().then(function (res) {
-      if (res.error) { if (window.console) console.error('No se pudo guardar el pedido real', res.error); return null; }
-      return res.data ? res.data.daily_seq : null;
-    }).catch(function () { return null; });
+    }, 2);
   }
 
   function markField(inputId, errId, ok) {
@@ -1095,20 +1122,23 @@
 
   function confirmOrder(e) {
     e.preventDefault();
+    var total = cartSubtotal() + deliveryCost();
     var nombreOk = !!CHECKOUT.nombre.trim();
-    var telOk = !!CHECKOUT.telefono.trim();
+    var telDigits = CHECKOUT.telefono.replace(/\D/g, '');
+    var telOk = telDigits.length >= 10;
     var dirOk = CHECKOUT.tipo !== 'delivery' || !!CHECKOUT.direccion.trim();
+    var pagoConOk = !(CHECKOUT.pago === 'Efectivo' && CHECKOUT.pagoCon && +CHECKOUT.pagoCon < total);
     markField('co-nombre', 'co-err-nombre', nombreOk);
     markField('co-telefono', 'co-err-telefono', telOk);
     if (CHECKOUT.tipo === 'delivery') markField('co-direccion', 'co-err-direccion', dirOk);
-    if (!nombreOk || !telOk || !dirOk) {
-      var firstBad = !nombreOk ? 'co-nombre' : (!telOk ? 'co-telefono' : 'co-direccion');
+    markField('co-pagocon', 'co-err-pagocon', pagoConOk);
+    if (!nombreOk || !telOk || !dirOk || !pagoConOk) {
+      var firstBad = !nombreOk ? 'co-nombre' : (!telOk ? 'co-telefono' : (!dirOk ? 'co-direccion' : 'co-pagocon'));
       var el = document.getElementById(firstBad);
       if (el) el.focus();
       return;
     }
 
-    var total = cartSubtotal() + deliveryCost();
     var code = randOrderCode();
     var fecha = argDateStr(new Date());
     /* El número que ve el cliente en el mensaje es el contador local
@@ -1224,6 +1254,16 @@
   document.addEventListener('change', function (e) {
     if (e.target.closest('[data-any-toggle]')) {
       var t = e.target, gi = t.getAttribute('data-gi'), name = t.getAttribute('data-name');
+      var group = MODAL.product.options[gi];
+      var isSinItem = /^sin\s/i.test(name);
+      var regularItems = group.items.filter(function (it) { return !/^sin\s/i.test(it.name); });
+      var isFreeGroup = regularItems.length > 0 && regularItems.every(function (it) { return !it.price; });
+      /* "Topping a elección" en la descripción = 1 solo topping gratis, no
+         todos los que haya. Las opciones pagas (Extras) y los "Sin X" no
+         tienen este límite. */
+      if (t.checked && isFreeGroup && !isSinItem) {
+        regularItems.forEach(function (it) { MODAL.any[gi][it.name] = false; });
+      }
       MODAL.any[gi][name] = t.checked;
       renderModal();
       return;
@@ -1246,8 +1286,8 @@
 
   document.addEventListener('input', function (e) {
     if (e.target.id === 'co-nombre') { CHECKOUT.nombre = e.target.value; markField('co-nombre', 'co-err-nombre', !!e.target.value.trim()); }
-    if (e.target.id === 'co-telefono') { CHECKOUT.telefono = e.target.value; markField('co-telefono', 'co-err-telefono', !!e.target.value.trim()); }
-    if (e.target.id === 'co-pagocon') CHECKOUT.pagoCon = e.target.value;
+    if (e.target.id === 'co-telefono') { CHECKOUT.telefono = e.target.value; markField('co-telefono', 'co-err-telefono', e.target.value.replace(/\D/g, '').length >= 10); }
+    if (e.target.id === 'co-pagocon') { CHECKOUT.pagoCon = e.target.value; markField('co-pagocon', 'co-err-pagocon', !(CHECKOUT.pago === 'Efectivo' && CHECKOUT.pagoCon && +CHECKOUT.pagoCon < (cartSubtotal() + deliveryCost()))); }
     if (e.target.id === 'co-direccion') {
       CHECKOUT.direccion = e.target.value;
       checkoutZone = findZone(e.target.value);
@@ -1704,13 +1744,18 @@
      (gratis, instantáneo) y solo si no encuentra nada intenta geocodificar
      la dirección completa. Siempre devuelve una promesa con el mismo shape
      que findZone (null / -1 / {i,b,addr}). */
+  /* resolveZone puede devolver: null (query vacía), -1 (encontramos la
+     dirección pero está fuera de las zonas de envío), 'not-found' (no
+     pudimos ubicar esa dirección, probablemente está mal escrita) o un
+     {i,b,addr} con la zona encontrada. */
+  var ZONE_NOT_FOUND = 'not-found';
   function resolveZone(q) {
     var local = findZone(q);
     if (local === null || local !== -1) return Promise.resolve(local);
     var query = (q || '').trim();
-    if (query.length < 5) return Promise.resolve(-1);
+    if (query.length < 5) return Promise.resolve(ZONE_NOT_FOUND);
     return geocodeAddress(query).then(function (pos) {
-      if (!pos) return -1;
+      if (!pos) return ZONE_NOT_FOUND;
       var km = haversineKm(CENTER_LAT, CENTER_LON, pos.lat, pos.lon);
       var i = zoneIndexByDistanceKm(km);
       if (i === -1) return -1;
@@ -1721,8 +1766,12 @@
   function renderZoneResult() {
     var el = document.getElementById('zone-result');
     if (!currentZone) { el.innerHTML = ''; return; }
+    if (currentZone === ZONE_NOT_FOUND) {
+      el.innerHTML = '<div class="zone-result zone-result--no"><strong>No encontramos esa dirección.</strong> Revisá que esté bien escrita (calle, altura y barrio) e intentá de nuevo.</div>';
+      return;
+    }
     if (currentZone === -1) {
-      el.innerHTML = '<div class="zone-result zone-result--no"><strong>Todavía no llegamos a tu zona.</strong> Todavía no llegamos hasta tu casa, pero te esperamos en el local. También podés retirar tu pedido en Fragueiro y Quevedo, o pedirnos por PedidosYa o Mercado Libre.</div>';
+      el.innerHTML = '<div class="zone-result zone-result--no"><strong>Todavía no llegamos a tu zona.</strong> Te esperamos en el local (Fragueiro y Quevedo), o pedinos por PedidosYa o Mercado Libre.</div>';
       return;
     }
     var z = ZONES[currentZone.i];

@@ -423,7 +423,9 @@ label.opt-row.is-checked .opt-row__price{color:#0E0E0E}
 .cart-line__name{font-weight:700;font-size:15px}
 .cart-line__sub{font-size:12px;opacity:.65;margin-top:1px}
 .cart-line__price{font-family:Anton,Impact,sans-serif;font-size:18px;white-space:nowrap}
+.cart-line__tops-label{margin:6px 0 0;font-size:12px;font-weight:700;opacity:.7}
 .cart-line__tops{list-style:none;margin:6px 0 0;padding:0;font-size:13px;opacity:.8;display:grid;gap:2px}
+.cart-line__tops-label + .cart-line__tops{margin-top:2px}
 .cart-line__note{margin:6px 0 0;font-size:13px;font-style:italic;opacity:.8}
 .cart-line__ctrl{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px}
 .cart-line__remove{background:transparent;border:0;color:#E63B2E;font:700 13px 'Work Sans',sans-serif;cursor:pointer;padding:6px 0}

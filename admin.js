@@ -317,7 +317,7 @@
   }
 
   function loadOrdersFromDb() {
-    return db.from('orders').select('*').neq('status', 'entregado').order('created_at', { ascending: false }).then(function (res) {
+    return db.from('orders').select('*').not('status', 'in', '(entregado,cancelado)').order('created_at', { ascending: false }).then(function (res) {
       if (res.error) { if (window.console) console.error(res.error); return; }
       orders = (res.data || []).map(mapOrderRow);
     });
@@ -331,7 +331,7 @@
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, function (payload) {
         var updated = mapOrderRow(payload.new);
-        if (updated.status === 'entregado') {
+        if (updated.status === 'entregado' || updated.status === 'cancelado') {
           orders = orders.filter(function (o) { return o.id !== updated.id; });
         } else {
           var i = orders.findIndex(function (o) { return o.id === updated.id; });
@@ -403,7 +403,7 @@
       var itemsHtml = g.items.map(function (l) {
         if (l.legacy) return '<li>' + escapeHtml(l.name) + '</li>';
         var toppingsHtml = (l.toppings && l.toppings.length)
-          ? '<p class="order-line__topping-label">Topping:</p><ul class="order-line__toppings">' +
+          ? '<p class="order-line__topping-label">' + (l.qty > 1 ? 'Cada unidad lleva:' : 'Topping:') + '</p><ul class="order-line__toppings">' +
             l.toppings.map(function (t) { return '<li>- ' + t.qty + 'x ' + escapeHtml(t.name) + (t.price > 0 ? ' (+' + fmt(t.price) + ')' : '') + '</li>'; }).join('') +
             '</ul>'
           : '';
@@ -532,15 +532,18 @@
 
   /* Cancelar borra el pedido para siempre (no hay "cancelados" para revisar
      despues), asi que se confirma antes de mandar el delete. */
+  /* Cancelar NO borra la fila: queda con status "cancelado" (sale del
+     Kanban igual que "entregado"), asi no se pierde el historial ni la
+     facturacion del dia por un pedido que se canceló. */
   function cancelOrder(id) {
     var o = orders.filter(function (x) { return x.id === id; })[0];
     if (!o) return;
     var label = '#' + (o.dailySeq != null ? o.dailySeq : o.id) + ' (' + o.name + ')';
-    if (!window.confirm('¿Cancelar el pedido ' + label + '? Se borra por completo, no se puede deshacer.')) return;
+    if (!window.confirm('¿Cancelar el pedido ' + label + '? Sale del tablero, pero queda guardado como cancelado.')) return;
     orders = orders.filter(function (x) { return x.id !== id; });
     renderKanbanTabs(); renderKanban(); renderPedidosResumen(); renderBadges();
     closeOrderDetail();
-    db.from('orders').delete().eq('id', id).then(function (res) {
+    db.from('orders').update({ status: 'cancelado' }).eq('id', id).then(function (res) {
       if (res.error && window.console) console.error(res.error);
     });
   }
