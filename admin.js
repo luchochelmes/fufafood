@@ -770,7 +770,7 @@
       '<div class="adm-prod-main">' +
       '<input type="text" data-role="name" value="' + escapeHtml(name) + '" placeholder="Nombre">' +
       '<input type="text" data-role="desc" value="' + escapeHtml(desc) + '" placeholder="Descripción">' +
-      '<input type="number" data-role="price" value="' + (price || 0) + '" placeholder="Precio" min="0" step="100">' +
+      '<input type="number" data-role="price" value="' + (price || 0) + '" placeholder="Precio" min="0" step="1">' +
       '</div>' +
       '<div class="adm-prod-side">' +
       '<label class="adm-switch"><input type="checkbox" data-role="on"' + (on ? ' checked' : '') + '><span class="adm-switch__track"><span class="adm-switch__thumb"></span></span><span class="adm-switch__label">Disponible</span></label>' +
@@ -911,9 +911,17 @@
   function allRealProducts() {
     var out = [];
     (CARTA_DATA || []).forEach(function (c) {
-      c.products.forEach(function (p) { out.push({ cat: c.slug, catName: c.name, name: p.name, label: effectiveName(p) }); });
+      c.products.forEach(function (p) { out.push({ cat: c.slug, catName: c.name, id: p.id, name: p.name, label: effectiveName(p) }); });
     });
     return out;
+  }
+
+  /* Un pick coincide con un producto por id (estable); los picks viejos
+     (de antes de este cambio) solo tenían {cat,name}, así que para esos
+     se compara por nombre como respaldo. */
+  function pickMatchesProduct(pick, p) {
+    if (pick.id) return pick.id === p.id;
+    return pick.cat === p.cat && pick.name === p.name;
   }
 
   function renderTopPicksEditor() {
@@ -930,9 +938,13 @@
       var optgroups = Object.keys(byCat).map(function (catSlug) {
         var group = byCat[catSlug];
         var opts = group.items.map(function (p) {
-          var val = p.cat + '::' + p.name;
-          var sel = (p.cat === pick.cat && p.name === pick.name) ? ' selected' : '';
-          return '<option value="' + escapeHtml(val) + '"' + sel + '>' + escapeHtml(p.label) + '</option>';
+          var val = p.cat + '::' + p.id;
+          var isThisSlot = pickMatchesProduct(pick, p);
+          /* No dejar elegir el mismo producto en dos puestos a la vez. */
+          var usedElsewhere = picks.some(function (other, oi) { return oi !== i && pickMatchesProduct(other, p); });
+          var attrs = (isThisSlot ? ' selected' : '') + (usedElsewhere && !isThisSlot ? ' disabled' : '');
+          var label = p.label + ' — ' + p.catName + (usedElsewhere && !isThisSlot ? ' (ya elegido)' : '');
+          return '<option value="' + escapeHtml(val) + '"' + attrs + '>' + escapeHtml(label) + '</option>';
         }).join('');
         return '<optgroup label="' + escapeHtml(group.catName) + '">' + opts + '</optgroup>';
       }).join('');
@@ -948,10 +960,13 @@
       sel.addEventListener('change', function () {
         var idx = +sel.getAttribute('data-top-pick-idx');
         var parts = sel.value.split('::');
+        var product = products.filter(function (p) { return p.cat === parts[0] && p.id === parts[1]; })[0];
+        if (!product) return;
         var current = effectiveTopPicks().slice();
-        current[idx] = { cat: parts[0], name: parts[1] };
+        current[idx] = { cat: parts[0], id: parts[1], name: product.name };
         state.topPicks = current;
         save();
+        renderTopPicksEditor();
         renderFotos();
       });
     });
@@ -1079,10 +1094,10 @@
      FOTOS
      ============================================================ */
   var DEFAULT_TOP_PICKS = [
-    { cat: 'hamburguesas', name: 'BIG FUFA' },
-    { cat: 'lomitos', name: 'ESPECIAL' },
-    { cat: 'pizzas', name: 'ESPECIAL' },
-    { cat: 'empanadas', name: 'DOCENA EMPANADAS MIXTAS' }
+    { cat: 'hamburguesas', id: 'IlNOGYezC5vWn4zWrBHc', name: 'BIG FUFA' },
+    { cat: 'lomitos', id: 'fCScPT8RmMvRgWjQQ98P', name: 'ESPECIAL' },
+    { cat: 'pizzas', id: 'weHYC6IEv5aIx2TZ0UdF', name: 'ESPECIAL' },
+    { cat: 'empanadas', id: 'v8kx4BFNafhSc9AipQyA', name: 'DOCENA EMPANADAS MIXTAS' }
   ];
 
   function effectiveTopPicks() {
@@ -1093,6 +1108,11 @@
     var c = catBySlug(catSlug);
     if (!c) return null;
     return c.products.filter(function (p) { return p.name === name; })[0] || null;
+  }
+  function findRealProductById(catSlug, id) {
+    var c = catBySlug(catSlug);
+    if (!c) return null;
+    return c.products.filter(function (p) { return p.id === id; })[0] || null;
   }
 
   function fotoSlotHtml(key, label, currentUrl, hint) {
@@ -1128,7 +1148,7 @@
     }).join('');
 
     var topSlots = effectiveTopPicks().map(function (t) {
-      var p = findRealProduct(t.cat, t.name);
+      var p = t.id ? findRealProductById(t.cat, t.id) : findRealProduct(t.cat, t.name);
       var cur = p ? effectiveThumb(p) : '';
       return fotoSlotHtml('top::' + (p ? p.id : t.cat + '-' + t.name), p ? effectiveName(p) : t.name, cur, null);
     }).join('');
@@ -1249,8 +1269,28 @@
     byId('svc-capacidad').value = state.capacidad;
     byId('svc-whatsapp').value = state.whatsapp;
     byId('svc-capacidad').addEventListener('input', function (e) { state.capacidad = +e.target.value || 0; save(); });
-    byId('svc-whatsapp').addEventListener('input', function (e) { state.whatsapp = e.target.value.trim(); save(); renderPausedBanner(); });
+    byId('svc-whatsapp').addEventListener('input', function (e) { state.whatsapp = e.target.value.trim(); save(); renderPausedBanner(); updateWaTestLink(); });
+    byId('svc-whatsapp').addEventListener('change', function (e) {
+      state.whatsapp = normalizeWhatsapp(e.target.value);
+      e.target.value = state.whatsapp;
+      save(); renderPausedBanner(); updateWaTestLink();
+    });
+    updateWaTestLink();
     renderStatusIndicators();
+  }
+
+  /* Agrega el 549 (Argentina, celular) si falta, para que wa.me y tel:
+     siempre reciban el formato internacional completo (ver C1 del QA). */
+  function normalizeWhatsapp(raw) {
+    var digits = (raw || '').replace(/\D/g, '');
+    if (!digits) return '';
+    if (digits.indexOf('549') === 0) return digits;
+    if (digits.indexOf('54') === 0) return '549' + digits.slice(2);
+    return '549' + digits;
+  }
+  function updateWaTestLink() {
+    var a = byId('svc-whatsapp-test');
+    if (a) a.href = 'https://wa.me/' + normalizeWhatsapp(state.whatsapp);
   }
 
   /* ============================================================

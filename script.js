@@ -29,10 +29,10 @@
   /* Elegidos a mano como "más pedidos" (no viene marcado en los datos reales):
      una hamburguesa top, un lomito, una pizza y una docena de empanadas. */
   var TOP_PICKS = [
-    { cat: 'hamburguesas', name: 'BIG FUFA' },
-    { cat: 'lomitos', name: 'ESPECIAL' },
-    { cat: 'pizzas', name: 'ESPECIAL' },
-    { cat: 'empanadas', name: 'DOCENA EMPANADAS MIXTAS' }
+    { cat: 'hamburguesas', id: 'IlNOGYezC5vWn4zWrBHc', name: 'BIG FUFA' },
+    { cat: 'lomitos', id: 'fCScPT8RmMvRgWjQQ98P', name: 'ESPECIAL' },
+    { cat: 'pizzas', id: 'weHYC6IEv5aIx2TZ0UdF', name: 'ESPECIAL' },
+    { cat: 'empanadas', id: 'v8kx4BFNafhSc9AipQyA', name: 'DOCENA EMPANADAS MIXTAS' }
   ];
 
   /* Textos editoriales por categoría (no vienen en el catálogo). Los slugs
@@ -145,7 +145,9 @@
         if (sig2 !== sig) break;
         j++;
       }
-      var label = (i === j) ? DAY_NAMES_MON[i] : (DAY_NAMES_MON[i] + ' a ' + DAY_NAMES_MON[j]);
+      var label = (i === j) ? DAY_NAMES_MON[i]
+        : (j === i + 1) ? (DAY_NAMES_MON[i] + ' y ' + DAY_NAMES_MON[j]) /* 2 días seguidos: "Viernes y Sábado" lee mejor que "Viernes a Sábado" */
+        : (DAY_NAMES_MON[i] + ' a ' + DAY_NAMES_MON[j]);
       rows.push({
         day: label,
         text: d.open ? ('De ' + fmtHourPart(d.from) + ' a ' + fmtHourPart(d.to)) : 'Cerrado'
@@ -1527,7 +1529,9 @@
     if (!CARTA_DATA) { el.innerHTML = '<p class="carta-loading">Cargando la carta…</p>'; return; }
     var activePicks = (ADMIN.topPicks && ADMIN.topPicks.length === 4) ? ADMIN.topPicks : TOP_PICKS;
     var picks = activePicks.map(function (pick) {
-      var p = findProduct(pick.cat, pick.name);
+      /* Los picks viejos guardaban solo {cat,name}; renombrar el producto
+         rompía la referencia. Los nuevos guardan {cat,id}, estable. */
+      var p = pick.id ? findProductById(pick.cat, pick.id) : findProduct(pick.cat, pick.name);
       var cat = CARTA_DATA.filter(function (c) { return c.slug === pick.cat; })[0];
       return p ? { cat: pick.cat, catName: cat ? cat.name : '', p: p } : null;
     }).filter(Boolean);
@@ -1796,8 +1800,32 @@
   }
 
   /* ===================== event form ===================== */
+  /* Frase de cada tipo de evento para el mensaje de WhatsApp (en vez de
+     anteponer "un" a ciegas: "un juntada" queda mal, es "una juntada"). */
+  var EVENT_TIPO_FRASE = {
+    'Cumpleaños': 'un cumpleaños',
+    'Juntada': 'una juntada',
+    'After office': 'un after office',
+    'Evento de empresa': 'un evento de empresa',
+    'Otro': 'un evento'
+  };
+
+  /* ¿Ese día de la semana está cerrado según los horarios del panel? */
+  function isWeekdayClosed(dateStr) {
+    var d = new Date(dateStr + 'T00:00:00');
+    var monIdx = (d.getDay() + 6) % 7; // 0=Lunes, igual que ADMIN.hours
+    var days = (ADMIN.hours && ADMIN.hours.length === 7) ? ADMIN.hours : HOURS_DEFAULT_RAW;
+    var day = days[monIdx];
+    return !!(day && day.open === false);
+  }
+
   function initEventForm() {
     var form = document.getElementById('event-form');
+    var fechaInput = document.getElementById('ev-fecha');
+    if (fechaInput) {
+      var today = new Date();
+      fechaInput.min = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+    }
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var nombre = document.getElementById('ev-nombre').value.trim();
@@ -1806,16 +1834,23 @@
       var tipo = document.getElementById('ev-tipo').value;
       var capacidad = ADMIN.capacidad || 40;
       var errNombre = !nombre;
-      var errFecha = !fecha || !(+personas > 0);
+      var fechaPasada = !!fecha && fecha < fechaInput.min;
+      var fechaCerrada = !!fecha && !fechaPasada && isWeekdayClosed(fecha);
+      var errFecha = !fecha || !(+personas > 0) || fechaPasada || fechaCerrada;
       var errCapacidad = !errFecha && +personas > capacidad;
       document.getElementById('err-nombre').hidden = !errNombre;
-      document.getElementById('err-fecha').hidden = !errFecha;
+      var errFechaEl = document.getElementById('err-fecha');
+      errFechaEl.textContent = fechaPasada ? 'Elegí una fecha a partir de hoy.'
+        : fechaCerrada ? 'Ese día el local está cerrado, elegí otra fecha.'
+        : 'Completá la fecha y la cantidad de personas.';
+      errFechaEl.hidden = !errFecha;
       var errCapEl = document.getElementById('err-capacidad');
       errCapEl.textContent = 'El local entra hasta ' + capacidad + ' personas. Para un grupo más grande, escribinos directo por WhatsApp.';
       errCapEl.hidden = !errCapacidad;
       if (errNombre || errFecha || errCapacidad) return;
       var f = fecha.split('-').reverse().join('/');
-      var msg = 'Hola Fufa! Soy ' + nombre + '. Quiero alquilar el local para un ' + tipo.toLowerCase() + ' el ' + f + ', somos ' + personas + '. ¿Tienen la fecha libre?';
+      var frase = EVENT_TIPO_FRASE[tipo] || ('un ' + tipo.toLowerCase());
+      var msg = 'Hola Fufa! Soy ' + nombre + '. Quiero alquilar el local para ' + frase + ' el ' + f + ', somos ' + personas + '. ¿Tienen la fecha libre?';
       window.open(waText(msg), '_blank', 'noopener');
     });
   }
@@ -2090,6 +2125,11 @@
     if (input) input.addEventListener('input', applyCartaSearch);
   }
 
+  function applyEventosCapacidad() {
+    var el = document.getElementById('eventos-capacidad-text');
+    if (el) el.textContent = ADMIN.capacidad || 40;
+  }
+
   function applyAdminEffects() {
     applyWaLinks();
     applyServicesVisibility();
@@ -2097,6 +2137,7 @@
     renderStatus();
     applyHoursText();
     applySectionPhotos();
+    applyEventosCapacidad();
     refreshCarta();
   }
 

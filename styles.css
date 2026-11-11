@@ -298,9 +298,10 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .footer__tag{margin:12px 0 0;font-size:17px}
 .footer__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:28px 40px;margin-top:48px;font-size:16px;line-height:1.6}
 .footer__grid p{margin:0}
+.footer__grid a{display:inline-block;padding:9px 0;min-height:44px;box-sizing:border-box}
 .footer__grid a:hover{color:#FFD400}
 .footer__legal{display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;margin-top:40px;padding-top:24px;border-top:1px solid rgba(255,255,255,.15);font-size:13px}
-.footer__legal a{opacity:.7}
+.footer__legal a{opacity:.7;display:inline-flex;align-items:center;min-height:44px}
 .footer__legal a:hover{opacity:1;color:#FFD400}
 .footer__legal button{background:transparent;border:0;padding:0;font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;color:#FFFFFF;opacity:.7;cursor:pointer}
 .footer__legal button:hover{opacity:1;color:#FFD400}
