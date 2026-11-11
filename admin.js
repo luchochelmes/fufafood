@@ -1279,5 +1279,65 @@
     });
   }
 
-  document.addEventListener('DOMContentLoaded', boot);
+  /* ============================================================
+     LOGIN
+     Aviso de seguridad: esto es solo una traba del lado del navegador para
+     que no entre cualquiera que se tope con la URL. NO reemplaza seguridad
+     real — la base (Supabase) sigue aceptando leer/escribir con la misma
+     clave pública que ya usa la web público, login o no. La contraseña
+     nunca queda en texto plano en el código: se compara el hash SHA-256.
+     ============================================================ */
+  var AUTH_KEY = 'fufaAdminAuth';
+  var AUTH_USER = 'fufafood';
+  var AUTH_PASS_SHA256 = 'fef938812a2ba39a4d65df411de1a091be30a3195fcc3dc6bfba6c15365a5452';
+
+  function sha256Hex(text) {
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(function (buf) {
+      return Array.prototype.map.call(new Uint8Array(buf), function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+    });
+  }
+
+  function showAdminShell() {
+    document.body.classList.remove('is-logged-out');
+    ['adm-topbar', 'adm-shell', 'adm-bottomnav'].forEach(function (id) { var el = byId(id); if (el) el.hidden = false; });
+  }
+
+  function wireLogout() {
+    var btn = byId('logout-btn');
+    if (btn) btn.addEventListener('click', function () {
+      window.localStorage.removeItem(AUTH_KEY);
+      window.location.reload();
+    });
+  }
+
+  function wireLogin() {
+    var form = byId('login-form');
+    var err = byId('login-error');
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var user = byId('login-user').value.trim();
+      var pass = byId('login-pass').value;
+      sha256Hex(pass).then(function (hash) {
+        if (user === AUTH_USER && hash === AUTH_PASS_SHA256) {
+          window.localStorage.setItem(AUTH_KEY, '1');
+          err.hidden = true;
+          showAdminShell();
+          boot();
+        } else {
+          err.hidden = false;
+        }
+      });
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    wireLogout();
+    if (window.localStorage.getItem(AUTH_KEY) === '1') {
+      showAdminShell();
+      boot();
+    } else {
+      document.body.classList.add('is-logged-out');
+      wireLogin();
+    }
+  });
 })();

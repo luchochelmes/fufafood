@@ -55,6 +55,7 @@ a{color:inherit}
 .adm-side__status{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
 .adm-side__saved{font-size:12px;opacity:.65;margin-top:8px}
 .adm-side__link{display:inline-block;margin-top:10px;font-size:13px;color:var(--yellow);font-weight:700}
+.adm-side__link--btn{background:none;border:0;padding:0;text-align:left;text-decoration:underline;font-family:inherit}
 
 .adm-dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;flex:none}
 
@@ -87,6 +88,15 @@ a{color:inherit}
 .adm-panel--dark .adm-field input,.adm-panel--dark .adm-field select{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff}
 .adm-field-row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
 .adm-top-picks-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+
+/* ===== Login ===== */
+#login-screen{display:none;min-height:100vh;align-items:center;justify-content:center;background:var(--ink);padding:24px}
+body.is-logged-out #login-screen{display:flex}
+.adm-login-box{width:100%;max-width:340px;background:var(--cream);border-radius:14px;padding:32px 28px;display:flex;flex-direction:column;gap:14px}
+.adm-login-box__logo{font-family:Anton,Impact,sans-serif;font-size:28px;text-transform:uppercase}
+.adm-login-box__tag{margin:-10px 0 4px;font-size:13px;opacity:.7}
+.adm-login-box__error{color:var(--red);font-size:13px;font-weight:700;margin:0}
+.adm-login-box .adm-btn{margin-top:6px}
 .adm-check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500}
 
 .adm-panel{background:var(--beige);border-radius:10px;padding:20px;margin:20px 0}
