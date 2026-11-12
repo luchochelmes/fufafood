@@ -157,7 +157,11 @@
     db.channel('settings-live')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_settings', filter: 'id=eq.main' }, function (payload) {
         var updatedAt = payload.new && payload.new.updated_at;
-        if (!updatedAt || updatedAt === lastSavedUpdatedAt) return;
+        if (!updatedAt) return;
+        // Comparamos como fechas, no como texto: Supabase devuelve el timestamp
+        // con otro formato (zona/precisión) que el que guardamos nosotros, así
+        // que comparar strings daba "conflicto" hasta con nuestro propio guardado.
+        if (lastSavedUpdatedAt && Math.abs(new Date(updatedAt).getTime() - new Date(lastSavedUpdatedAt).getTime()) < 2000) return;
         var banner = byId('conflict-banner');
         if (banner) banner.hidden = false;
       })
