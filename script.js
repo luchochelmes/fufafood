@@ -1601,8 +1601,9 @@
               '<button type="button" class="qty-stepper__btn qty-stepper__btn--add" data-qty-inc aria-label="Agregar uno"' + (p.soldOut ? ' disabled' : '') + '>+</button>' +
               '</div>'
             );
+          var searchHay = norm(p.name + ' ' + c.name + ' ' + (p.desc || ''));
           var li = (
-            '<li data-open-product data-cat="' + escapeHtml(c.slug) + '" data-pid="' + escapeHtml(p.id) + '" role="button" tabindex="0" aria-label="Ver ' + escapeHtml(p.name) + '">' +
+            '<li data-open-product data-cat="' + escapeHtml(c.slug) + '" data-pid="' + escapeHtml(p.id) + '" data-search="' + escapeHtml(searchHay) + '" role="button" tabindex="0" aria-label="Ver ' + escapeHtml(p.name) + '">' +
             '<div class="cat-items__thumb photo-wrap">' + productImg(p.thumb, p.name, '1/1', p.name, photoFitFor(c.slug)) + '</div>' +
             '<div class="cat-items__main">' +
             '<div class="cat-items__toprow"><div class="cat-items__name">' + escapeHtml(p.name) + '</div>' +
@@ -1943,18 +1944,30 @@
     return { seg: seg, sub: sub, page: page };
   }
 
+  /* Si entraron directo por /local o /eventos, el scroll inicial (60ms)
+     puede quedar mal una vez que terminan de llegar el catálogo y los
+     datos del panel (cambian la altura de todo lo de arriba, hero
+     incluido). Guardamos el deep-link y lo reintentamos cuando esos
+     datos lleguen, ver initDeepLinkRescroll(). */
+  var deepLinkSectionId = null;
+
+  function scrollToSection(id, first) {
+    var el = document.getElementById(id);
+    if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - navPx(), behavior: first ? 'auto' : 'smooth' });
+  }
+
   function route(first) {
     var loc = parseLocation();
     showPage(loc.page);
     applyPageMeta(loc.page);
     closeMenu();
+    deepLinkSectionId = (first && (loc.seg === 'local' || loc.seg === 'eventos')) ? loc.seg : null;
     setTimeout(function () {
       if (loc.page === 'legal' && loc.sub) {
         var elL = document.getElementById(loc.sub);
         if (elL) window.scrollTo({ top: elL.getBoundingClientRect().top + window.scrollY - navPx(), behavior: first ? 'auto' : 'smooth' });
       } else if (loc.seg === 'local' || loc.seg === 'eventos') {
-        var el = document.getElementById(loc.seg);
-        if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - navPx(), behavior: first ? 'auto' : 'smooth' });
+        scrollToSection(loc.seg, first);
       } else if (loc.page === 'carta' && pendingCat) {
         var id = pendingCat; pendingCat = null;
         activeCat = id; updateChipActive();
@@ -2101,15 +2114,16 @@
   function applyCartaSearch() {
     var input = document.getElementById('carta-search');
     if (!input) return;
-    var q = norm(input.value.trim());
+    var raw = input.value.trim();
+    var q = norm(raw);
+    var anyVisible = false;
     document.querySelectorAll('#carta-categories .cat-section').forEach(function (sec) {
       var secVisible = false;
       sec.querySelectorAll('.cat-group').forEach(function (grp) {
         var grpVisible = false;
         grp.querySelectorAll('.cat-items > li').forEach(function (li) {
-          var nameEl = li.querySelector('.cat-items__name');
-          var name = norm(nameEl ? nameEl.textContent : '');
-          var match = !q || name.indexOf(q) !== -1;
+          var hay = li.getAttribute('data-search') || '';
+          var match = !q || hay.indexOf(q) !== -1;
           li.hidden = !match;
           if (match) grpVisible = true;
         });
@@ -2117,12 +2131,35 @@
         if (grpVisible) secVisible = true;
       });
       sec.hidden = !secVisible;
+      if (secVisible) anyVisible = true;
     });
+    var empty = document.getElementById('carta-search-empty');
+    if (empty) {
+      if (q && !anyVisible) {
+        empty.hidden = false;
+        empty.innerHTML = 'No encontramos "' + escapeHtml(raw) + '". <button type="button" class="carta-search-empty__btn" data-clear-carta-search>Ver toda la carta</button>';
+      } else {
+        empty.hidden = true;
+      }
+    }
+    /* Con una búsqueda activa el chip de categoría que había quedado
+       marcado por el scroll ya no tiene sentido (esa sección puede estar
+       oculta); se lo saca mientras haya texto en el buscador. */
+    document.querySelectorAll('#carta-chip-list .chip').forEach(function (btn) {
+      if (q) btn.classList.remove('is-active');
+    });
+    if (!q) updateChipActive();
   }
 
   function initCartaSearch() {
     var input = document.getElementById('carta-search');
     if (input) input.addEventListener('input', applyCartaSearch);
+    var empty = document.getElementById('carta-search-empty');
+    if (empty) empty.addEventListener('click', function (e) {
+      if (!e.target.closest('[data-clear-carta-search]')) return;
+      if (input) { input.value = ''; input.focus(); }
+      applyCartaSearch();
+    });
   }
 
   function applyEventosCapacidad() {
@@ -2184,6 +2221,7 @@
       var fresh = res.data && res.data.data;
       refreshAdmin(fresh);
       saveAdminToCache(fresh);
+      if (deepLinkSectionId) setTimeout(function () { scrollToSection(deepLinkSectionId, true); }, 60);
     }).catch(function (err) {
       if (window.console) console.error(err);
       setTimeout(loadAdminFromDb, 4000);
@@ -2232,6 +2270,7 @@
         var el3 = document.getElementById('cat-' + id);
         if (el3) window.scrollTo({ top: el3.getBoundingClientRect().top + window.scrollY - navPx() - 56, behavior: 'auto' });
       }
+      if (deepLinkSectionId) setTimeout(function () { scrollToSection(deepLinkSectionId, true); }, 60);
       setTimeout(reveal, 60);
     }).catch(function (err) {
       var msg = '<p class="carta-loading">No pudimos cargar la carta. Probá recargar la página.</p>';

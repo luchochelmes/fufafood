@@ -202,6 +202,8 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .carta-search input{width:100%;min-height:48px;padding:0 14px 0 42px;background:#FFFFFF;border:2px solid #0E0E0E;border-radius:8px;font:400 16px 'Work Sans',sans-serif;color:#0E0E0E}
 .carta-search input::placeholder{color:#0E0E0E;opacity:.45}
 .carta-search input:focus-visible{outline:3px solid #0E0E0E;outline-offset:1px}
+.carta-search-empty{margin:16px 0 0;font-size:15px}
+.carta-search-empty__btn{background:none;border:0;padding:0;font:inherit;font-weight:700;text-decoration:underline;color:inherit;cursor:pointer}
 .cat-nav{position:sticky;top:56px;z-index:40;background:#0E0E0E;border-bottom:2px solid rgba(255,212,0,.25)}
 @media (min-width:1024px){.cat-nav{top:64px}}
 .cat-nav__inner{padding:10px clamp(20px,3vw,32px);display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
