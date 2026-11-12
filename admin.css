@@ -97,6 +97,10 @@ body.is-logged-out #login-screen{display:flex}
 .adm-login-box__tag{margin:-10px 0 4px;font-size:13px;opacity:.7}
 .adm-login-box__error{color:var(--red);font-size:13px;font-weight:700;margin:0}
 .adm-login-box .adm-btn{margin-top:6px}
+
+/* ===== Aviso de conflicto (otro dispositivo guardó) ===== */
+.adm-conflict-banner{position:sticky;top:0;z-index:50;background:var(--red);color:#fff;font-weight:700;font-size:14px;padding:12px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:center;text-align:center}
+.adm-conflict-banner button{background:#fff;color:var(--red);border:0;border-radius:6px;min-height:34px;padding:0 14px;font-weight:700;cursor:pointer}
 .adm-check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500}
 
 .adm-panel{background:var(--beige);border-radius:10px;padding:20px;margin:20px 0}

@@ -115,12 +115,13 @@
      fotos, precios, los más pedidos, etc) con los valores de fábrica. Ahora
      reintenta solo hasta tener la fila real antes de dejar seguir a boot(). */
   function loadStateFromDb() {
-    return db.from('app_settings').select('data').eq('id', 'main').maybeSingle().then(function (res) {
+    return db.from('app_settings').select('data,updated_at').eq('id', 'main').maybeSingle().then(function (res) {
       if (res.error || !res.data) {
         if (window.console) console.error(res.error || new Error('app_settings "main" no llegó, reintentando'));
         return new Promise(function (resolve) { setTimeout(function () { resolve(loadStateFromDb()); }, 3000); });
       }
       state = mergeState(defaultState(), res.data.data);
+      lastSavedUpdatedAt = res.data.updated_at;
     }).catch(function (err) {
       if (window.console) console.error(err);
       return new Promise(function (resolve) { setTimeout(function () { resolve(loadStateFromDb()); }, 3000); });
@@ -133,13 +134,34 @@
     var el1 = byId('saved-text');
     if (el1) el1.textContent = 'Guardando…';
     saveTimer = setTimeout(function () {
-      db.from('app_settings').upsert({ id: 'main', data: state, updated_at: new Date().toISOString() }).then(function (res) {
+      var ts = new Date().toISOString();
+      lastSavedUpdatedAt = ts;
+      db.from('app_settings').upsert({ id: 'main', data: state, updated_at: ts }).then(function (res) {
         var d = new Date();
         var hh = String(d.getHours()).padStart(2, '0');
         var mm = String(d.getMinutes()).padStart(2, '0');
         if (el1) el1.textContent = res.error ? 'No se pudo guardar — revisá tu conexión' : ('Guardado ' + hh + ':' + mm);
       });
     }, 400);
+  }
+
+  /* P1 del informe QA: si dos pestañas/dispositivos editan el panel al
+     mismo tiempo, el último que guarda pisa al otro sin avisar (toda la
+     config es un solo registro). No cambiamos ese guardado "todo junto"
+     (seria una migracion grande), pero al menos avisamos: si llega un
+     cambio de OTRO origen (updated_at distinto al que guardamos
+     nosotros mismos), se muestra un banner para recargar antes de seguir
+     editando y pisar ese cambio sin querer. */
+  var lastSavedUpdatedAt = null;
+  function subscribeSettings() {
+    db.channel('settings-live')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_settings', filter: 'id=eq.main' }, function (payload) {
+        var updatedAt = payload.new && payload.new.updated_at;
+        if (!updatedAt || updatedAt === lastSavedUpdatedAt) return;
+        var banner = byId('conflict-banner');
+        if (banner) banner.hidden = false;
+      })
+      .subscribe();
   }
 
   /* ===================== catálogo real ===================== */
@@ -1365,6 +1387,9 @@
     loadStateFromDb().then(function () {
       initPedidos();
       renderPausedBanner();
+      subscribeSettings();
+      var reloadBtn = byId('conflict-reload-btn');
+      if (reloadBtn) reloadBtn.addEventListener('click', function () { window.location.reload(); });
 
       fetch('./data-carta.json').then(function (r) { return r.json(); }).then(function (data) {
         CARTA_DATA = data;
