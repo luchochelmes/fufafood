@@ -1372,7 +1372,7 @@
       products = products.map(function (p) {
         var ov = overrides[p.id];
         if (!ov) return p;
-        if (ov.deleted) return null;
+        if (ov.deleted || ov.hidden) return null;
         var np = {};
         for (var k in p) np[k] = p[k];
         if (typeof ov.price === 'number') np.price = ov.price;

@@ -205,6 +205,18 @@
   function isDeleted(p) {
     return !!overrideFor(p.id).deleted;
   }
+  function isHidden(p) {
+    return !!overrideFor(p.id).hidden;
+  }
+  /* Un producto recién creado arranca oculto (ver add-prod-btn); se
+     publica solo cuando ya tiene nombre y precio reales, para no mostrar
+     "Producto nuevo" a $0 en la web mientras se lo está armando. */
+  function maybeAutoPublish(p) {
+    if (!isHidden(p)) return;
+    var nm = effectiveName(p).trim();
+    var pr = effectivePrice(p);
+    if (nm && nm !== 'Producto nuevo' && pr > 0) setOverride(p.id, { hidden: false });
+  }
 
   /* ===================== navegación entre secciones ===================== */
   var SECTIONS = ['pedidos', 'carta', 'delivery', 'fotos', 'servicios'];
@@ -264,6 +276,35 @@
      ============================================================ */
   var orders = [];
   var kanbanTab = 'nuevos';
+
+  /* Aviso de pedido nuevo: sonido + titulo de la pestaña, para que no se
+     pase un pedido si la cocina tiene esta pantalla en otra pestaña. */
+  var baseTitle = document.title;
+  var newOrderCount = 0;
+  function playNewOrderSound() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = 880; g.gain.value = 0.2;
+      o.connect(g); g.connect(ctx.destination);
+      o.start();
+      setTimeout(function () { o.stop(); ctx.close(); }, 180);
+      setTimeout(function () {
+        var ctx2 = new (window.AudioContext || window.webkitAudioContext)();
+        var o2 = ctx2.createOscillator(), g2 = ctx2.createGain();
+        o2.type = 'sine'; o2.frequency.value = 1175; g2.gain.value = 0.2;
+        o2.connect(g2); g2.connect(ctx2.destination);
+        o2.start();
+        setTimeout(function () { o2.stop(); ctx2.close(); }, 180);
+      }, 200);
+    } catch (e) { /* el navegador puede bloquear audio si todavia no hubo ninguna interaccion; no pasa nada */ }
+  }
+  function updateTabTitle() {
+    document.title = newOrderCount > 0 ? '(' + newOrderCount + ') Nuevo pedido' : baseTitle;
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) { newOrderCount = 0; updateTabTitle(); }
+  });
   var COLUMNS = [
     { key: 'nuevos', label: 'Nuevos' },
     { key: 'cocina', label: 'En cocina' },
@@ -328,6 +369,8 @@
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, function (payload) {
         orders.unshift(mapOrderRow(payload.new));
         renderKanban(); renderPedidosResumen(); renderBadges();
+        playNewOrderSound();
+        if (document.hidden) { newOrderCount++; updateTabTitle(); }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, function (payload) {
         var updated = mapOrderRow(payload.new);
@@ -761,6 +804,7 @@
     var thumb = photos.length ? photos[0] : p.thumb;
     var on = isOn(p);
     var promo = isPromo(p);
+    var hidden = isHidden(p);
     return (
       '<div class="adm-prod-row' + (on ? '' : ' is-off') + '" data-pid="' + escapeHtml(p.id) + '">' +
       '<div class="adm-prod-thumb" data-role="thumb" title="Click para administrar fotos">' +
@@ -779,6 +823,7 @@
       '</div>' +
       (!on ? '<span class="adm-sold-out">Agotado</span>' : '') +
       (promo ? '<span class="adm-sold-out" style="background:#2DB84C">En promo</span>' : '') +
+      (hidden ? '<span class="adm-sold-out" style="background:#8a6a00">Oculto — completá nombre y precio para publicarlo</span>' : '') +
       '</div>'
     );
   }
@@ -810,9 +855,20 @@
     list.querySelectorAll('.adm-prod-row').forEach(function (row) {
       var pid = row.getAttribute('data-pid');
       var product = products.filter(function (p) { return p.id === pid; })[0];
-      row.querySelector('[data-role="name"]').addEventListener('input', function (e) { setOverride(pid, { name: e.target.value }); });
-      row.querySelector('[data-role="desc"]').addEventListener('input', function (e) { setOverride(pid, { desc: e.target.value }); });
-      row.querySelector('[data-role="price"]').addEventListener('input', function (e) { setOverride(pid, { price: +e.target.value || 0 }); });
+      /* "change" (al salir del campo), no "input": publicar un valor por
+         cada tecla tipeada mandaba precios/nombres a medio escribir a
+         quien estuviera mirando la web justo en ese momento. */
+      row.querySelector('[data-role="name"]').addEventListener('change', function (e) {
+        setOverride(pid, { name: e.target.value });
+        maybeAutoPublish(product);
+        renderCatEditor();
+      });
+      row.querySelector('[data-role="desc"]').addEventListener('change', function (e) { setOverride(pid, { desc: e.target.value }); });
+      row.querySelector('[data-role="price"]').addEventListener('change', function (e) {
+        setOverride(pid, { price: +e.target.value || 0 });
+        maybeAutoPublish(product);
+        renderCatEditor();
+      });
       row.querySelector('[data-role="on"]').addEventListener('change', function (e) {
         setOverride(pid, { on: e.target.checked });
         renderCatEditor();
@@ -833,7 +889,11 @@
 
     byId('add-prod-btn').addEventListener('click', function () {
       var list2 = state.customProducts[c.slug] || (state.customProducts[c.slug] = []);
-      list2.push({ id: uid(), name: 'Producto nuevo', slug: 'producto-nuevo', group: '', desc: '', price: 0, priceDiscount: null, thumb: '', image: '', options: [] });
+      var newId = uid();
+      list2.push({ id: newId, name: 'Producto nuevo', slug: 'producto-nuevo', group: '', desc: '', price: 0, priceDiscount: null, thumb: '', image: '', options: [] });
+      /* Arranca oculto: no se ve en la web hasta que tenga nombre y precio
+         reales (ver maybeAutoPublish), asi no sale "Producto nuevo" a $0. */
+      setOverride(newId, { hidden: true });
       save();
       renderCatTabs();
       renderCatEditor();

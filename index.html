@@ -24,6 +24,30 @@
 <meta name="twitter:description" content="Hamburguesas, lomitos, pizzas y empanadas en Alta Córdoba.">
 <meta name="twitter:image" content="https://fufafood.vercel.app/og-image.png">
 
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Restaurant",
+  "name": "Fufa Food",
+  "image": "https://fufafood.vercel.app/og-image.png",
+  "url": "https://fufafood.vercel.app/",
+  "telephone": "+5493518685148",
+  "servesCuisine": ["Hamburguesas", "Pizza", "Lomitos", "Empanadas"],
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "Mariano Fragueiro 2706, esq. Francisco de Quevedo",
+    "addressLocality": "Alta Córdoba",
+    "addressRegion": "Córdoba",
+    "addressCountry": "AR"
+  },
+  "hasMenu": "https://fufafood.vercel.app/carta",
+  "openingHoursSpecification": [
+    { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Tuesday", "Wednesday", "Thursday", "Sunday"], "opens": "20:00", "closes": "00:00" },
+    { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Friday", "Saturday"], "opens": "20:00", "closes": "00:30" }
+  ]
+}
+</script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://hpcofktqsdiypkrgvpdw.supabase.co">
@@ -347,6 +371,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js"></script>
 <script src="supabase-client.js?v=20261102m"></script>
-<script src="script.js?v=20261111d"></script>
+<script src="script.js?v=20261111e"></script>
 </body>
 </html>
