@@ -685,6 +685,12 @@
     });
   }
 
+  /* Antes esto devolvía un data: URL en base64 (quedaba texto pesado
+     adentro de app_settings). Ahora redimensiona igual pero sube el
+     archivo a Supabase Storage (bucket "fotos", ver supabase/schema.sql)
+     y devuelve la URL pública real -- unos pocos bytes para guardar en
+     vez de cientos de KB por foto. */
+  var STORAGE_BUCKET = 'fotos';
   function resizeImageToDataUrl(file, maxSize, cb) {
     var img = new Image();
     var reader = new FileReader();
@@ -698,7 +704,18 @@
         var canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        cb(canvas.toDataURL('image/jpeg', 0.85));
+        canvas.toBlob(function (blob) {
+          var path = 'img-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.jpg';
+          db.storage.from(STORAGE_BUCKET).upload(path, blob, { contentType: 'image/jpeg' }).then(function (res) {
+            if (res.error) {
+              if (window.console) console.error('No se pudo subir la imagen', res.error);
+              window.alert('No se pudo subir la imagen. Si es la primera vez, puede faltar crear el bucket "fotos" en Supabase (ver supabase/schema.sql). Si no, revisá tu conexión.');
+              return;
+            }
+            var pub = db.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+            cb(pub.data.publicUrl);
+          });
+        }, 'image/jpeg', 0.85);
       };
       img.src = e.target.result;
     };

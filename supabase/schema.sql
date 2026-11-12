@@ -136,6 +136,34 @@ alter table orders add column if not exists code text;
 alter table orders add column if not exists pago_con numeric;
 
 -- ============================================================
+-- 2.3) Storage para las fotos: hasta ahora cada foto se guardaba como
+--      texto base64 adentro del mismo registro de app_settings (~2MB+
+--      en total, todo eso se descarga antes de ver la portada). Este
+--      bucket público reemplaza eso: las fotos quedan como archivos de
+--      verdad con su propia URL, y app_settings solo guarda esa URL
+--      (unos pocos bytes en vez de cientos de KB por foto).
+-- ============================================================
+insert into storage.buckets (id, name, public)
+values ('fotos', 'fotos', true)
+on conflict (id) do nothing;
+
+drop policy if exists "publico puede subir fotos" on storage.objects;
+create policy "publico puede subir fotos" on storage.objects
+  for insert to public with check (bucket_id = 'fotos');
+
+drop policy if exists "publico puede actualizar fotos" on storage.objects;
+create policy "publico puede actualizar fotos" on storage.objects
+  for update to public using (bucket_id = 'fotos');
+
+drop policy if exists "publico puede borrar fotos" on storage.objects;
+create policy "publico puede borrar fotos" on storage.objects
+  for delete to public using (bucket_id = 'fotos');
+
+drop policy if exists "publico puede leer fotos" on storage.objects;
+create policy "publico puede leer fotos" on storage.objects
+  for select to public using (bucket_id = 'fotos');
+
+-- ============================================================
 -- 3) Realtime: para que los cambios se vean en vivo sin recargar
 --    (a prueba de repetición: si ya estaban agregadas, no falla)
 -- ============================================================
