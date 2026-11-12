@@ -431,6 +431,48 @@
 
   /* -------- modal de producto: cantidad + grupos de opciones -------- */
   var MODAL = null; /* { catSlug, catName, group, product, qty, any:{gi:{name:bool}}, fixed:{gi:{name:qty}} } */
+  var modalScrollY = 0;
+  var modalOpenerEl = null;
+
+  /* Bloquea el scroll del fondo mientras el modal está abierto (si no, en
+     mobile se podía seguir scrolleando la página de atrás). */
+  function lockBodyScroll() {
+    modalScrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = '-' + modalScrollY + 'px';
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+  }
+  function unlockBodyScroll() {
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    window.scrollTo(0, modalScrollY);
+  }
+
+  /* inert saca todo lo que no sea el modal de la navegación por teclado y
+     de los lectores de pantalla (antes se podía tabular al buscador o a
+     links de atrás con el modal abierto). */
+  function setBackgroundInert(on) {
+    Array.prototype.forEach.call(document.body.children, function (el) {
+      if (el.id === 'product-modal-root') return;
+      if (on) el.setAttribute('inert', ''); else el.removeAttribute('inert');
+    });
+  }
+
+  function trapModalFocus(e) {
+    if (!MODAL) return;
+    var root = document.getElementById('product-modal-root');
+    if (e.key === 'Escape') { e.preventDefault(); closeProductModal(); return; }
+    if (e.key !== 'Tab') return;
+    var focusables = root.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])');
+    if (!focusables.length) return;
+    var first = focusables[0], last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+  document.addEventListener('keydown', trapModalFocus);
 
   function openProductModal(catSlug, pid) {
     var c = CARTA_DATA.filter(function (cc) { return cc.slug === catSlug; })[0];
@@ -445,14 +487,23 @@
         MODAL.any[gi] = {};
       }
     });
+    modalOpenerEl = document.activeElement;
     renderModal();
     document.getElementById('product-modal-root').hidden = false;
+    lockBodyScroll();
+    setBackgroundInert(true);
+    var closeBtn = document.querySelector('#product-modal-root .modal-close');
+    if (closeBtn) closeBtn.focus();
   }
 
   function closeProductModal() {
     MODAL = null;
     var root = document.getElementById('product-modal-root');
     if (root) { root.hidden = true; root.innerHTML = ''; }
+    unlockBodyScroll();
+    setBackgroundInert(false);
+    if (modalOpenerEl && modalOpenerEl.focus) modalOpenerEl.focus();
+    modalOpenerEl = null;
   }
 
   /* ===================== cookies (consentimiento) ===================== */
@@ -663,23 +714,24 @@
 
     root.innerHTML =
       '<div class="modal-overlay" id="product-modal-overlay">' +
-      '<button type="button" class="modal-close" data-modal-close>Cerrar</button>' +
       '<div class="modal-box" role="dialog" aria-modal="true" aria-label="Agregar ' + escapeHtml(p.name) + '">' +
+      '<button type="button" class="modal-close" data-modal-close>Cerrar</button>' +
       modalGalleryHtml(p) +
       '<h3 class="modal-title">' + escapeHtml(p.name) + '</h3>' +
       '<p class="modal-price">' + priceHtml(p.price, p.priceDiscount) + '</p>' +
       (p.desc ? '<p class="modal-desc">' + escapeHtml(p.desc) + '</p>' : '') +
+      groupsHtml +
+      noteHtml +
+      '<div class="modal-sticky-bar">' +
       '<div class="modal-qty"><span class="modal-qty-label">Cantidad</span>' +
       '<span class="stepper">' +
       '<button type="button" data-modal-qty-dec' + (MODAL.qty <= 1 ? ' disabled' : '') + '>−</button>' +
       '<span id="modal-qty-val">' + MODAL.qty + '</span>' +
       '<button type="button" data-modal-qty-inc>+</button>' +
       '</span></div>' +
-      groupsHtml +
-      noteHtml +
       '<div class="modal-add-wrap">' + msg +
       '<button type="button" class="btn btn-yellow" id="modal-add-btn" data-modal-add' + (canAdd ? '' : ' disabled') + '>Agregar al pedido · ' + fmt(total) + '</button>' +
-      '</div></div></div>';
+      '</div></div></div></div>';
 
     var newBox = root.querySelector('.modal-box');
     if (newBox && prevScroll) newBox.scrollTop = prevScroll;

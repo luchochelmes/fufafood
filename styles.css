@@ -358,10 +358,12 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 @media (min-width:640px){.modal-overlay{align-items:center}}
 .modal-box{background:#0E0E0E;width:100%;max-width:520px;max-height:90vh;overflow:auto;border-radius:14px 14px 0 0;padding:24px clamp(20px,4vw,32px) 28px;position:relative}
 @media (min-width:640px){.modal-box{border-radius:14px}}
-/* Fuera de .modal-box (que es lo que scrollea) y fijo sobre el overlay, para
-   que nunca quede tapado ni se vaya de la pantalla al scrollear el modal. */
+/* Adentro de .modal-box (no fijo sobre el overlay): en mobile el box
+   arranca más abajo del viewport, y un botón fijo al viewport quedaba
+   tapando el header del modal. Tocar afuera del box o Escape siguen
+   cerrando igual aunque este botón se scrollee. */
 .modal-close{position:absolute;top:14px;right:14px;z-index:1;min-height:36px;padding:0 12px;background:#FFD400;border:2px solid #0E0E0E;border-radius:6px;font:700 13px 'Work Sans',sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25)}
-.modal-title{font-family:Anton,Impact,sans-serif;font-size:28px;text-transform:uppercase;margin:0}
+.modal-title{font-family:Anton,Impact,sans-serif;font-size:28px;text-transform:uppercase;margin:0;padding-right:70px}
 
 /* ===== Mini-galería del modal (varias fotos por producto) ===== */
 .modal-gallery{border-radius:10px;overflow:hidden;background:#0E0E0E}
@@ -373,8 +375,15 @@ h1,h2,h3{font-family:Anton,Impact,sans-serif;font-weight:400;text-transform:uppe
 .modal-gallery__dot{width:9px;height:9px;border-radius:50%;background:transparent;border:2px solid #0E0E0E;padding:0;cursor:pointer}
 .modal-gallery__dot.is-active{background:#FFD400}
 .modal-price{font-family:Anton,Impact,sans-serif;font-size:20px;margin:6px 0 0}
-.modal-desc{font-size:15px;line-height:1.5;margin:8px 0 0;color:#444}
+.modal-desc{font-size:15px;line-height:1.5;margin:8px 0 0;color:#CFCFCF}
 .modal-qty{margin:18px 0 4px;display:flex;align-items:center;gap:14px}
+/* Barra inferior fija con cantidad + "Agregar": antes el botón quedaba al
+   final de todo el modal, después de todas las opciones (scroll largo en
+   mobile); ahora siempre está a la vista mientras se scrollea el resto. */
+.modal-sticky-bar{position:sticky;bottom:-28px;z-index:3;margin:20px calc(-1*clamp(20px,4vw,32px)) -28px;padding:14px clamp(20px,4vw,32px);background:#0E0E0E;border-top:1px solid rgba(255,212,0,.2);display:flex;align-items:center;gap:16px}
+.modal-sticky-bar .modal-qty{margin:0}
+.modal-sticky-bar .modal-add-wrap{flex:1;margin:0;display:grid;gap:8px}
+.modal-sticky-bar #modal-add-btn{width:100%}
 .modal-qty-label{font-weight:700;font-size:14px}
 .opt-group{margin-top:22px}
 .opt-group__title{font-weight:700;font-size:13px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.03em;opacity:.65}
