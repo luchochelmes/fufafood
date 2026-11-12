@@ -1,8 +1,6 @@
 {
   "rewrites": [
     { "source": "/administracion", "destination": "/admin.html" },
-    { "handle": "filesystem" },
-    { "source": "/", "destination": "/index.html" },
     { "source": "/carta", "destination": "/index.html" },
     { "source": "/delivery", "destination": "/index.html" },
     { "source": "/legal", "destination": "/index.html" },
