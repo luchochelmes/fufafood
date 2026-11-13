@@ -121,7 +121,7 @@
         return new Promise(function (resolve) { setTimeout(function () { resolve(loadStateFromDb()); }, 3000); });
       }
       state = mergeState(defaultState(), res.data.data);
-      lastSavedUpdatedAt = res.data.updated_at;
+      rememberOwnSave(res.data.updated_at);
     }).catch(function (err) {
       if (window.console) console.error(err);
       return new Promise(function (resolve) { setTimeout(function () { resolve(loadStateFromDb()); }, 3000); });
@@ -135,7 +135,7 @@
     if (el1) el1.textContent = 'Guardando…';
     saveTimer = setTimeout(function () {
       var ts = new Date().toISOString();
-      lastSavedUpdatedAt = ts;
+      rememberOwnSave(ts);
       db.from('app_settings').upsert({ id: 'main', data: state, updated_at: ts }).then(function (res) {
         var d = new Date();
         var hh = String(d.getHours()).padStart(2, '0');
@@ -152,16 +152,32 @@
      cambio de OTRO origen (updated_at distinto al que guardamos
      nosotros mismos), se muestra un banner para recargar antes de seguir
      editando y pisar ese cambio sin querer. */
-  var lastSavedUpdatedAt = null;
+  // Guarda los últimos timestamps que generamos NOSOTROS (esta pestaña), no
+  // solo el último: si editás varios campos seguidos, cada guardado viaja
+  // por separado y sus confirmaciones pueden llegar de vuelta desordenadas.
+  // Con un solo valor recordado, la confirmación de un guardado "viejo" que
+  // llega tarde no se reconocía como propia y se mostraba como si fuera de
+  // otro dispositivo, aunque fuera la misma persona editando normal.
+  var ownSaveTimes = [];
+  function rememberOwnSave(isoTs) {
+    var ms = new Date(isoTs).getTime();
+    ownSaveTimes.push(ms);
+    var cutoff = Date.now() - 60000;
+    ownSaveTimes = ownSaveTimes.filter(function (t) { return t >= cutoff; });
+  }
+  function isOwnSave(isoTs) {
+    var ms = new Date(isoTs).getTime();
+    for (var i = 0; i < ownSaveTimes.length; i++) {
+      if (Math.abs(ownSaveTimes[i] - ms) < 2000) return true;
+    }
+    return false;
+  }
   function subscribeSettings() {
     db.channel('settings-live')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_settings', filter: 'id=eq.main' }, function (payload) {
         var updatedAt = payload.new && payload.new.updated_at;
         if (!updatedAt) return;
-        // Comparamos como fechas, no como texto: Supabase devuelve el timestamp
-        // con otro formato (zona/precisión) que el que guardamos nosotros, así
-        // que comparar strings daba "conflicto" hasta con nuestro propio guardado.
-        if (lastSavedUpdatedAt && Math.abs(new Date(updatedAt).getTime() - new Date(lastSavedUpdatedAt).getTime()) < 2000) return;
+        if (isOwnSave(updatedAt)) return;
         var banner = byId('conflict-banner');
         if (banner) banner.hidden = false;
       })
